@@ -848,7 +848,8 @@ function App() {
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   {role==="supervisor" && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="sky" small onClick={()=>setDispOrder(sel)}>📤 {sel.dispatchedTo?"Reassign":"Dispatch"}</Btn>}
-                  {(sel.status==="open"||sel.status==="dispatched") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit</Btn>}
+                  {/* Only supervisors/accounting can edit — techs use the action panels below */}
+                  {(role==="supervisor"||role==="accounting") && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit</Btn>}
                 </div>
               </div>
 
@@ -862,6 +863,47 @@ function App() {
                 </div>
 
                 {sel.dispatchedTo && <div style={{padding:"10px 24px",background:"#e0f2fe",borderBottom:"1px solid #7dd3fc",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:700,color:"#0369a1"}}>📤 Dispatched to {sel.dispatchedTo}</span><span style={{fontSize:12,color:"#0369a1"}}>{sel.dispatchedAt}</span>{sel.dispatchNotes&&<span style={{fontSize:12,color:"#374151",fontStyle:"italic"}}>— "{sel.dispatchNotes}"</span>}</div>}
+
+                {/* ── TECH ACTION BANNERS — shown prominently at top ── */}
+                {role==="tech" && (sel.status==="open"||sel.status==="dispatched") && (
+                  <div style={{padding:"20px 24px",background:"linear-gradient(135deg,#fffbeb,#fef9ec)",borderBottom:"3px solid #f59e0b"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+                      <span style={{fontSize:32}}>🔧</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:800,fontSize:16,color:"#92400e",marginBottom:4}}>Job assigned to you — ready to start?</div>
+                        <div style={{fontSize:13,color:"#78350f"}}>Tap Start Job when you arrive on site. You'll submit it to your supervisor when finished.</div>
+                      </div>
+                      <Btn style={{fontSize:16,padding:"12px 24px"}} onClick={()=>patch(sel.id,{status:"in_progress"})}>▶ Start Job</Btn>
+                    </div>
+                  </div>
+                )}
+                {role==="tech" && sel.status==="in_progress" && (
+                  <div style={{padding:"20px 24px",background:"linear-gradient(135deg,#f0f9ff,#e0f2fe)",borderBottom:"3px solid #0369a1"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+                      <span style={{fontSize:24}}>✍️</span>
+                      <div style={{fontWeight:800,fontSize:15,color:"#0369a1"}}>Job in progress — fill in details then submit to supervisor</div>
+                    </div>
+                    <Txt label="Work Performed *" value={act.notes} rows={4} placeholder="Describe exactly what was done — parts replaced, repairs made, findings, anything the supervisor needs to know…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
+                    <Inp label="Your Name *" value={act.name} placeholder="Your full name" onChange={e=>setAct(p=>({...p,name:e.target.value}))}/>
+                    <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginBottom:20,fontSize:14,color:"#374151",background:"#fff",border:"1px solid #d1d5db",borderRadius:8,padding:"12px 14px"}}>
+                      <input type="checkbox" checked={act.checked} onChange={e=>setAct(p=>({...p,checked:e.target.checked}))} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
+                      <span><strong>I confirm this job is complete</strong> and ready for supervisor review.</span>
+                    </label>
+                    <Btn style={{fontSize:15,padding:"12px 28px"}} disabled={!act.checked||!act.name} onClick={()=>patch(sel.id,{status:"awaiting_supervisor",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp()})}>
+                      ✓ Submit to Supervisor
+                    </Btn>
+                    {(!act.notes||!act.name) && <div style={{fontSize:12,color:"#9ca3af",marginTop:10}}>Fill in Work Performed and your name to enable submit.</div>}
+                  </div>
+                )}
+                {role==="tech" && sel.status==="awaiting_supervisor" && (
+                  <div style={{padding:"18px 24px",background:"#fffbeb",borderBottom:"3px solid #fbbf24",display:"flex",gap:12,alignItems:"center"}}>
+                    <span style={{fontSize:28}}>⏳</span>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:800,color:"#92400e"}}>Submitted — awaiting supervisor review</div>
+                      <div style={{fontSize:12,color:"#92400e",marginTop:2}}>You're all done. Your supervisor will review and approve this job.</div>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{padding:"22px 24px"}}>
                   <SecHead>Customer</SecHead>
@@ -905,31 +947,6 @@ function App() {
                     </div>
                   </div>
                 </>}
-
-                {/* Tech actions */}
-                {role==="tech" && (sel.status==="open"||sel.status==="dispatched") && (
-                  <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #fbbf24"}}>
-                    <div style={{fontWeight:700,fontSize:14,color:"#92400e",marginBottom:12}}>Ready to begin? Start this job.</div>
-                    <Btn onClick={()=>patch(sel.id,{status:"in_progress"})}>▶ Start Job</Btn>
-                  </div>
-                )}
-                {role==="tech" && sel.status==="in_progress" && (
-                  <div style={{padding:"20px 24px",background:"#f0f9ff",borderTop:"3px solid #38bdf8"}}>
-                    <SecHead>Complete & Submit for Supervisor</SecHead>
-                    <Txt label="Work Performed" value={act.notes} rows={3} placeholder="What was done, parts replaced, findings…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
-                    <Inp label="Your Name" value={act.name} placeholder="Full name" onChange={e=>setAct(p=>({...p,name:e.target.value}))}/>
-                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:16,fontSize:14}}>
-                      <input type="checkbox" checked={act.checked} onChange={e=>setAct(p=>({...p,checked:e.target.checked}))} style={{width:16,height:16}}/>
-                      I confirm this job is complete and ready for supervisor review.
-                    </label>
-                    <Btn disabled={!act.checked||!act.name} onClick={()=>patch(sel.id,{status:"awaiting_supervisor",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp()})}>✓ Submit for Supervisor Review</Btn>
-                  </div>
-                )}
-                {role==="tech" && sel.status==="awaiting_supervisor" && (
-                  <div style={{padding:"18px 24px",background:"#fffbeb",borderTop:"3px solid #fbbf24",display:"flex",gap:10,alignItems:"center"}}>
-                    <span style={{fontSize:20}}>⏳</span><div style={{fontSize:14,color:"#92400e",fontWeight:600}}>Submitted — awaiting supervisor review.</div>
-                  </div>
-                )}
 
                 {/* Supervisor actions */}
                 {role==="supervisor" && sel.status==="awaiting_supervisor" && (
