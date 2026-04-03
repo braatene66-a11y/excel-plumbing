@@ -823,7 +823,7 @@ function App() {
                 <LaborPanel data={form} onChange={updated=>setForm(updated)}/>
               </div>
               <div style={{padding:"16px 24px",background:"#f9fafb",borderTop:"1px solid #f0f0f0",display:"flex",gap:10,justifyContent:"flex-end"}}>
-                <Btn variant="outline" onClick={goDash}>Cancel</Btn>
+                <Btn variant="outline" onClick={()=>{ if(view==="edit"&&selId){ setView("detail"); } else { goDash(); } }}>Cancel</Btn>
                 <Btn variant="navy" disabled={syncing} onClick={async()=>{
                   const o={...form};
                   if(view==="create"){const saved=await saveOrder(o,true);setSelId(saved.id);}
@@ -884,11 +884,16 @@ function App() {
                     )}
                     {showTechPanels && sel.status==="in_progress" && (
                       <div style={{padding:"20px 24px",background:"linear-gradient(135deg,#f0f9ff,#e0f2fe)",borderBottom:"3px solid #0369a1"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-                          <span style={{fontSize:24}}>✍️</span>
-                          <div style={{fontWeight:800,fontSize:15,color:"#0369a1"}}>
-                            {isSupervisorDoingOwnJob ? "Log your work then approve directly below" : "Job in progress — fill in details then submit to supervisor"}
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{fontSize:24}}>✍️</span>
+                            <div style={{fontWeight:800,fontSize:15,color:"#0369a1"}}>
+                              {isSupervisorDoingOwnJob ? "Log your work then approve directly below" : "Job in progress — fill in details then submit to supervisor"}
+                            </div>
                           </div>
+                          <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>
+                            ✎ Edit Materials & Labor
+                          </Btn>
                         </div>
                         <Txt label="Work Performed *" value={act.notes} rows={4} placeholder="Describe exactly what was done — parts replaced, repairs made, findings…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
                         <Inp label="Your Name *" value={act.name} placeholder="Your full name" onChange={e=>setAct(p=>({...p,name:e.target.value}))}/>
