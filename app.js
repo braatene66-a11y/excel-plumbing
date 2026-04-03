@@ -431,19 +431,16 @@ const TeamView = ({ config, onUpdate, onBack }) => {
     if(!p.name.trim()||!p.email.trim()) return;
     setNewPerson(prev=>({...prev,[field]:{...prev[field],status:"Creating…"}}));
     try {
-      let uid;
       try {
-        // Try creating new account
         const res = await fbSignUp(p.email.trim(), p.pass);
-        uid = res.uid;
-        await fsSet("users", uid, { name:p.name.trim(), email:p.email.trim(), role:ROLE_MAP[field] });
+        await fsSet("users", res.uid, { name:p.name.trim(), email:p.email.trim(), role:ROLE_MAP[field] });
       } catch(signUpErr) {
-        // If email already exists, just add to roster without creating new account
-        if(signUpErr.message.includes("EMAIL ALREADY IN USE") || signUpErr.message.includes("email address is already")) {
-          // Email exists — just add name to roster, don't error
-        } else {
+        // If email already exists just skip account creation and add to roster anyway
+        const msg = signUpErr.message.toUpperCase();
+        if(!msg.includes("EMAIL") && !msg.includes("EXIST") && !msg.includes("USE") && !msg.includes("TAKEN")) {
           throw signUpErr;
         }
+        // Email exists — silently continue and just add to roster
       }
       const updated = {...config,[field]:[...(config[field]||[]),p.name.trim()].sort()};
       await onUpdate(updated);
