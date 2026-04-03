@@ -410,18 +410,40 @@ const WeeklyReport = ({ orders, onBack }) => {
 // TEAM VIEW
 // ═══════════════════════════════════════════════════════
 const TeamView = ({ config, onUpdate, onBack }) => {
-  const [newName, setNewName] = useState({ roster:"", supervisors:"", accountingStaff:"" });
-  const add = async field => {
-    const n=newName[field].trim(); if(!n||config[field]?.includes(n)) return;
-    const updated = {...config,[field]:[...(config[field]||[]),n].sort()};
-    await onUpdate(updated); setNewName(p=>({...p,[field]:""}));
+  const ROLE_MAP = { roster:"tech", supervisors:"supervisor", accountingStaff:"accounting" };
+  const blankNew = { name:"", email:"", pass:"Excel2025!", status:"" };
+  const [adding, setAdding] = useState({ roster:false, supervisors:false, accountingStaff:false });
+  const [newPerson, setNewPerson] = useState({ roster:{...blankNew}, supervisors:{...blankNew}, accountingStaff:{...blankNew} });
+
+  const toggleAdd = field => setAdding(p=>({...p,[field]:!p[field]}));
+
+  const createPerson = async field => {
+    const p = newPerson[field];
+    if(!p.name.trim()||!p.email.trim()) return;
+    setNewPerson(prev=>({...prev,[field]:{...prev[field],status:"Creating…"}}));
+    try {
+      const { uid } = await fbSignUp(p.email.trim(), p.pass);
+      await fsSet("users", uid, { name:p.name.trim(), email:p.email.trim(), role:ROLE_MAP[field] });
+      const updated = {...config,[field]:[...(config[field]||[]),p.name.trim()].sort()};
+      await onUpdate(updated);
+      setNewPerson(prev=>({...prev,[field]:{...blankNew}}));
+      setAdding(prev=>({...prev,[field]:false}));
+    } catch(e) {
+      setNewPerson(prev=>({...prev,[field]:{...prev[field],status:"✗ "+e.message.slice(0,40)}}));
+    }
   };
-  const remove = async (field,name) => { await onUpdate({...config,[field]:config[field].filter(r=>r!==name)}); };
+
+  const remove = async (field,name) => {
+    if(!window.confirm(`Remove ${name} from the team roster? This does not delete their login.`)) return;
+    await onUpdate({...config,[field]:config[field].filter(r=>r!==name)});
+  };
+
   const sections = [
-    { field:"roster",        label:"Technicians",      bg:"#f0f4ff", border:"#c7d2fe", tag:"tech",       tagColor:"#1e40af", tagBg:"#e0e7ff" },
-    { field:"supervisors",   label:"Supervisors",      bg:"#fffbeb", border:"#fde68a", tag:"supervisor", tagColor:"#92400e", tagBg:"#fef3c7" },
-    { field:"accountingStaff",label:"Accounting",     bg:"#f5f3ff", border:"#ddd6fe", tag:"accounting", tagColor:"#5b21b6", tagBg:"#ede9fe" },
+    { field:"roster",         label:"Technicians",  bg:"#f0f4ff", border:"#c7d2fe", tag:"tech",       tagColor:"#1e40af", tagBg:"#e0e7ff" },
+    { field:"supervisors",    label:"Supervisors",  bg:"#fffbeb", border:"#fde68a", tag:"supervisor", tagColor:"#92400e", tagBg:"#fef3c7" },
+    { field:"accountingStaff",label:"Accounting",   bg:"#f5f3ff", border:"#ddd6fe", tag:"accounting", tagColor:"#5b21b6", tagBg:"#ede9fe" },
   ];
+
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
@@ -430,18 +452,34 @@ const TeamView = ({ config, onUpdate, onBack }) => {
       </div>
       {sections.map(({field,label,bg,border,tag,tagColor,tagBg})=>(
         <div key={field} style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden",marginBottom:14}}>
-          <div style={{padding:"16px 24px",background:"#f9fafb",borderBottom:"1px solid #f0f0f0"}}><SecHead>{label} ({(config[field]||[]).length})</SecHead></div>
+          <div style={{padding:"16px 24px",background:"#f9fafb",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <SecHead>{label} ({(config[field]||[]).length})</SecHead>
+            <Btn small onClick={()=>toggleAdd(field)}>+ Add {label.slice(0,-1)}</Btn>
+          </div>
           <div style={{padding:"18px 24px"}}>
-            <div style={{display:"flex",gap:8,alignItems:"flex-end",marginBottom:14}}>
-              <div style={{flex:1,marginBottom:0}}><Inp label={`Add ${label.slice(0,-1)}`} value={newName[field]} placeholder="Full name" onChange={e=>setNewName(p=>({...p,[field]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&add(field)}/></div>
-              <div style={{marginBottom:14}}><Btn small onClick={()=>add(field)} disabled={!newName[field].trim()}>+ Add</Btn></div>
-            </div>
+            {/* Add new person form */}
+            {adding[field] && (
+              <div style={{background:bg,border:`1px solid ${border}`,borderRadius:10,padding:"16px",marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:800,color:tagColor,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>New {label.slice(0,-1)}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+                  <Inp label="Full Name" value={newPerson[field].name} placeholder="First Last" onChange={e=>setNewPerson(p=>({...p,[field]:{...p[field],name:e.target.value}}))}/>
+                  <Inp label="Email Address" type="email" value={newPerson[field].email} placeholder="email@example.com" onChange={e=>setNewPerson(p=>({...p,[field]:{...p[field],email:e.target.value}}))}/>
+                </div>
+                <Inp label="Temporary Password" value={newPerson[field].pass} onChange={e=>setNewPerson(p=>({...p,[field]:{...p[field],pass:e.target.value}}))}/>
+                {newPerson[field].status && <div style={{fontSize:12,fontWeight:700,color:newPerson[field].status.startsWith("✗")?"#dc2626":"#059669",marginBottom:10}}>{newPerson[field].status}</div>}
+                <div style={{display:"flex",gap:8}}>
+                  <Btn variant="success" onClick={()=>createPerson(field)} disabled={!newPerson[field].name||!newPerson[field].email}>✓ Create Account & Add</Btn>
+                  <Btn variant="outline" onClick={()=>toggleAdd(field)}>Cancel</Btn>
+                </div>
+              </div>
+            )}
+            {/* Existing members list */}
             {(config[field]||[]).length===0 ? <div style={{textAlign:"center",padding:"16px 0",color:"#9ca3af",fontSize:13}}>None yet.</div> : (
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {(config[field]||[]).map(name=>(
                   <div key={name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:bg,border:`1px solid ${border}`,borderRadius:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${tagColor},${tagBg})`,color:tagColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800}}>{name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                      <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${tagColor},${tagBg})`,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800}}>{name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
                       <span style={{fontSize:14,fontWeight:700}}>{name}</span>
                       <span style={{fontSize:10,background:tagBg,color:tagColor,borderRadius:20,padding:"2px 8px",fontWeight:700,textTransform:"uppercase"}}>{tag}</span>
                     </div>
