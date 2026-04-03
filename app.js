@@ -198,14 +198,19 @@ const LaborPanel = ({ data, onChange }) => {
 // LOGIN SCREEN
 // ═══════════════════════════════════════════════════════
 const LoginScreen = ({ onLogin, onSetup }) => {
-  const [email, setEmail]   = useState("");
-  const [pass, setPass]     = useState("");
-  const [err, setErr]       = useState("");
+  const SAVED_KEY = "excel_plumbing_saved_login";
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(SAVED_KEY)||"{}"); } catch{ return {}; } })();
+  const [email, setEmail]     = useState(saved.email||"");
+  const [pass, setPass]       = useState(saved.pass||"");
+  const [remember, setRemember] = useState(!!saved.email);
+  const [err, setErr]         = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     setErr(""); setLoading(true);
     try {
+      if (remember) { localStorage.setItem(SAVED_KEY, JSON.stringify({email,pass})); }
+      else { localStorage.removeItem(SAVED_KEY); }
       const auth = await fbSignIn(email, pass);
       const profile = await fsGet("users", auth.uid);
       onLogin({ uid: auth.uid, ...profile });
@@ -226,6 +231,10 @@ const LoginScreen = ({ onLogin, onSetup }) => {
           <Err msg={err}/>
           <Inp label="Email Address" type="email" value={email} placeholder="you@example.com" onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}/>
           <Inp label="Password" type="password" value={pass} placeholder="••••••••" onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}/>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:16,fontSize:14,color:"#374151"}}>
+            <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+            Remember me on this device
+          </label>
           <Btn style={{width:"100%",justifyContent:"center"}} onClick={handleLogin} disabled={loading||!email||!pass}>
             {loading ? "Signing in…" : "Sign In →"}
           </Btn>
@@ -422,8 +431,20 @@ const TeamView = ({ config, onUpdate, onBack }) => {
     if(!p.name.trim()||!p.email.trim()) return;
     setNewPerson(prev=>({...prev,[field]:{...prev[field],status:"Creating…"}}));
     try {
-      const { uid } = await fbSignUp(p.email.trim(), p.pass);
-      await fsSet("users", uid, { name:p.name.trim(), email:p.email.trim(), role:ROLE_MAP[field] });
+      let uid;
+      try {
+        // Try creating new account
+        const res = await fbSignUp(p.email.trim(), p.pass);
+        uid = res.uid;
+        await fsSet("users", uid, { name:p.name.trim(), email:p.email.trim(), role:ROLE_MAP[field] });
+      } catch(signUpErr) {
+        // If email already exists, just add to roster without creating new account
+        if(signUpErr.message.includes("EMAIL ALREADY IN USE") || signUpErr.message.includes("email address is already")) {
+          // Email exists — just add name to roster, don't error
+        } else {
+          throw signUpErr;
+        }
+      }
       const updated = {...config,[field]:[...(config[field]||[]),p.name.trim()].sort()};
       await onUpdate(updated);
       setNewPerson(prev=>({...prev,[field]:{...blankNew}}));
