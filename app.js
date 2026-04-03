@@ -1,0 +1,933 @@
+const { useState, useEffect, useCallback } = React;
+
+
+// ═══════════════════════════════════════════════════════
+// FIREBASE CONFIG
+// ═══════════════════════════════════════════════════════
+const FB_KEY  = "AIzaSyAwiHu-MbKKyA9ZJUKefIrAGEd-suF07KE";
+const FB_PROJ = "excel-plumbing-e-ticket";
+const AUTH_EP = "https://identitytoolkit.googleapis.com/v1";
+const FS_EP   = `https://firestore.googleapis.com/v1/projects/${FB_PROJ}/databases/(default)/documents`;
+
+// ═══════════════════════════════════════════════════════
+// FIREBASE REST LAYER
+// ═══════════════════════════════════════════════════════
+let TOKEN = null;
+const H = () => ({ "Content-Type":"application/json", ...(TOKEN?{"Authorization":`Bearer ${TOKEN}`}:{}) });
+
+// Firestore value encode/decode
+const enc = v => {
+  if (v==null)              return { nullValue: null };
+  if (typeof v==="boolean") return { booleanValue: v };
+  if (typeof v==="number")  return Number.isInteger(v) ? { integerValue:""+v } : { doubleValue: v };
+  if (typeof v==="string")  return { stringValue: v };
+  if (Array.isArray(v))     return { arrayValue:{ values: v.map(enc) } };
+  if (typeof v==="object")  return { mapValue:{ fields: o2f(v) } };
+  return { stringValue:""+v };
+};
+const dec = v => {
+  if (!v) return null;
+  if ("nullValue"    in v) return null;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("integerValue" in v) return parseInt(v.integerValue);
+  if ("doubleValue"  in v) return v.doubleValue;
+  if ("stringValue"  in v) return v.stringValue;
+  if ("arrayValue"   in v) return (v.arrayValue.values||[]).map(dec);
+  if ("mapValue"     in v) return f2o(v.mapValue.fields||{});
+  return null;
+};
+const o2f = o => Object.fromEntries(Object.entries(o).filter(([,v])=>v!==undefined).map(([k,v])=>[k,enc(v)]));
+const f2o = f => Object.fromEntries(Object.entries(f).map(([k,v])=>[k,dec(v)]));
+const toFS   = o => ({ fields: o2f(o) });
+const fromFS = d => ({ ...f2o(d.fields||{}), id: d.name?.split("/").pop() });
+
+const fbSignIn = async (email, pass) => {
+  const r = await fetch(`${AUTH_EP}/accounts:signInWithPassword?key=${FB_KEY}`,
+    { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({email, password:pass, returnSecureToken:true}) });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message.replace(/_/g," "));
+  TOKEN = d.idToken;
+  return { uid: d.localId, email: d.email };
+};
+
+const fbSignUp = async (email, pass) => {
+  const r = await fetch(`${AUTH_EP}/accounts:signUp?key=${FB_KEY}`,
+    { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({email, password:pass, returnSecureToken:true}) });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message.replace(/_/g," "));
+  return { uid: d.localId };
+};
+
+const fsGet  = async (col,id) => { const r=await fetch(`${FS_EP}/${col}/${id}`,{headers:H()}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return fromFS(d); };
+const fsSet  = async (col,id,o) => { const r=await fetch(`${FS_EP}/${col}/${id}`,{method:"PATCH",headers:H(),body:JSON.stringify(toFS(o))}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return fromFS(d); };
+const fsAdd  = async (col,o) => { const r=await fetch(`${FS_EP}/${col}`,{method:"POST",headers:H(),body:JSON.stringify(toFS(o))}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return fromFS(d); };
+const fsList = async col => { const r=await fetch(`${FS_EP}/${col}?pageSize=500`,{headers:H()}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return (d.documents||[]).map(fromFS); };
+const fsDel  = async (col,id) => { await fetch(`${FS_EP}/${col}/${id}`,{method:"DELETE",headers:H()}); };
+
+// ═══════════════════════════════════════════════════════
+// CONSTANTS & UTILITIES
+// ═══════════════════════════════════════════════════════
+const STATUSES = {
+  open:                { label:"Open",                color:"#374151", bg:"#f9fafb", border:"#d1d5db" },
+  dispatched:          { label:"Dispatched",          color:"#0369a1", bg:"#e0f2fe", border:"#7dd3fc" },
+  in_progress:         { label:"In Progress",         color:"#1e40af", bg:"#eff6ff", border:"#93c5fd" },
+  awaiting_supervisor: { label:"Awaiting Supervisor", color:"#92400e", bg:"#fffbeb", border:"#fbbf24" },
+  awaiting_accounting: { label:"Awaiting Accounting", color:"#5b21b6", bg:"#f5f3ff", border:"#c4b5fd" },
+  closed:              { label:"Closed",              color:"#065f46", bg:"#ecfdf5", border:"#6ee7b7" },
+};
+const SERVICES = ["Plumbing Repair","Heating Repair","Boiler Service","New Installation",
+  "Preventive Maintenance","Emergency Call","Inspection & Report","Drain Cleaning",
+  "Water Heater Service","Gas Line","Other"];
+const P_COLOR = { Routine:"#059669", Urgent:"#d97706", Emergency:"#dc2626" };
+
+const fmt$    = n => `$${parseFloat(n||0).toFixed(2)}`;
+const fmtHrs  = n => `${parseFloat(n||0).toFixed(1)} hrs`;
+const fmtDate = d => d ? new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : "—";
+const todayISO  = () => new Date().toISOString().split("T")[0];
+const nowStamp  = () => new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"});
+const genWO     = () => `WO-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
+const getMondayOf = d => { const dt=new Date(d+"T12:00:00"); const diff=dt.getDay()===0?-6:1-dt.getDay(); dt.setDate(dt.getDate()+diff); return dt.toISOString().split("T")[0]; };
+const addDays   = (d,n) => { const dt=new Date(d+"T12:00:00"); dt.setDate(dt.getDate()+n); return dt.toISOString().split("T")[0]; };
+const fmtWeek   = m => { const s=new Date(m+"T12:00:00"); const e=new Date(addDays(m,6)+"T12:00:00"); const o={month:"short",day:"numeric"}; return `${s.toLocaleDateString("en-US",o)} – ${e.toLocaleDateString("en-US",o)}, ${e.getFullYear()}`; };
+
+const calcTotals = (o={}) => {
+  const { materials=[], laborHours=0, laborRate=0, laborHours2=0, laborRate2=0 } = o;
+  const mat  = materials.reduce((s,m)=>s+(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0),0);
+  const lab1 = (parseFloat(laborHours)||0)*(parseFloat(laborRate)||0);
+  const lab2 = (parseFloat(laborHours2)||0)*(parseFloat(laborRate2)||0);
+  const lab  = lab1+lab2;
+  const tax  = mat*0.08;
+  return { mat, lab1, lab2, lab, tax, sub:mat+lab, total:mat+lab+tax };
+};
+
+const blankOrder = () => ({
+  woNumber:genWO(), status:"open", priority:"Routine", serviceType:"Plumbing Repair",
+  createdDate:todayISO(), scheduledDate:todayISO(), createdBy:"", customerName:"",
+  customerPhone:"", customerEmail:"", customerAddress:"", jobLocation:"",
+  description:"", assignedTech:"", tech2Name:"", workPerformed:"", materials:[],
+  laborHours:"", laborRate:"85", laborHours2:"", laborRate2:"85",
+  dispatchedTo:"", dispatchedAt:"", dispatchNotes:"",
+  techSigned:false, techSignedBy:"", techSignedAt:"",
+  supervisorNotes:"", supervisorSigned:false, supervisorSignedBy:"", supervisorSignedAt:"",
+  accountingNotes:"", accountingClosedBy:"", accountingClosedAt:"",
+});
+
+// Default team data stored in Firestore config
+const DEFAULT_CONFIG = {
+  roster: ["Aaron Morris","Ben Rath","Chase Spencer","Mark Easterling"],
+  supervisors: ["Eric Braaten","Ryan Raisenan"],
+  accountingStaff: ["Ginger Garrett"],
+};
+
+// ═══════════════════════════════════════════════════════
+// UI PRIMITIVES
+// ═══════════════════════════════════════════════════════
+const Badge  = ({ status }) => { const c=STATUSES[status]||STATUSES.open; return <span style={{padding:"2px 10px",borderRadius:999,fontSize:11,fontWeight:700,color:c.color,background:c.bg,border:`1px solid ${c.border}`}}>{c.label}</span>; };
+const PBadge = ({ priority }) => <span style={{fontSize:12,fontWeight:700,color:P_COLOR[priority]||"#374151",display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:7,height:7,borderRadius:"50%",background:P_COLOR[priority]||"#374151",display:"inline-block"}}/>{priority}</span>;
+const Lbl = ({ children }) => <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{children}</label>;
+const iSt = { width:"100%",padding:"9px 12px",border:"1px solid #d1d5db",borderRadius:8,fontSize:14,fontFamily:"inherit",color:"#111827",background:"white",boxSizing:"border-box" };
+const Inp  = ({ label, ...p }) => <div style={{marginBottom:14}}>{label&&<Lbl>{label}</Lbl>}<input style={iSt} {...p}/></div>;
+const Sel  = ({ label, options, ...p }) => <div style={{marginBottom:14}}>{label&&<Lbl>{label}</Lbl>}<select style={iSt} {...p}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select></div>;
+const Txt  = ({ label, ...p }) => <div style={{marginBottom:14}}>{label&&<Lbl>{label}</Lbl>}<textarea style={{...iSt,resize:"vertical",minHeight:80}} {...p}/></div>;
+const vMap = { primary:{background:"#f47c00",color:"white",border:"none"}, navy:{background:"#0f2640",color:"white",border:"none"}, outline:{background:"white",color:"#374151",border:"1px solid #d1d5db"}, success:{background:"#059669",color:"white",border:"none"}, purple:{background:"#6d28d9",color:"white",border:"none"}, sky:{background:"#0369a1",color:"white",border:"none"}, red:{background:"#dc2626",color:"white",border:"none"} };
+const Btn  = ({ children, variant="primary", small, style={}, ...p }) => <button style={{...vMap[variant],padding:small?"6px 14px":"9px 20px",borderRadius:8,cursor:p.disabled?"not-allowed":"pointer",fontSize:small?12:14,fontWeight:700,fontFamily:"inherit",opacity:p.disabled?0.5:1,...style}} {...p}>{children}</button>;
+const SecHead = ({ children }) => <div style={{fontSize:11,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:"2px solid #f47c00",paddingBottom:5,marginBottom:16,display:"inline-block"}}>{children}</div>;
+const InfoRow = ({ label, value }) => <div style={{display:"flex",gap:8,marginBottom:8,fontSize:14}}><span style={{color:"#6b7280",fontWeight:600,minWidth:130,flexShrink:0}}>{label}</span><span style={{color:"#111827"}}>{value||"—"}</span></div>;
+const HR = () => <div style={{borderBottom:"1px solid #f3f4f6"}}/>;
+const Spinner = () => <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:40,color:"#9ca3af",fontSize:14}}>Loading…</div>;
+const Err = ({ msg }) => msg ? <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#dc2626",marginBottom:14}}>{msg}</div> : null;
+
+const TotalsBox = ({ t }) => (
+  <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:10,padding:"14px 18px",maxWidth:320,marginLeft:"auto"}}>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",marginBottom:5}}><span>Materials</span><span>{fmt$(t.mat)}</span></div>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",marginBottom:5}}><span>Labor</span><span>{fmt$(t.lab)}</span></div>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",borderTop:"1px solid #e5e7eb",paddingTop:6,marginBottom:5}}><span>Subtotal</span><span>{fmt$(t.sub)}</span></div>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",marginBottom:5}}><span>Tax (8% materials only)</span><span>{fmt$(t.tax)}</span></div>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:900,color:"#0f2640",borderTop:"2px solid #0f2640",paddingTop:8}}><span>TOTAL</span><span>{fmt$(t.total)}</span></div>
+  </div>
+);
+
+const MatTable = ({ materials=[], onUpdate }) => {
+  const [row, setRow] = useState({description:"",qty:"",unitPrice:""});
+  const add = () => { if(!row.description) return; onUpdate([...materials,{...row,id:Date.now()}]); setRow({description:"",qty:"",unitPrice:""}); };
+  return (<>
+    {materials.length>0 && <div style={{overflowX:"auto",marginBottom:14}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:400}}>
+        <thead><tr style={{background:"#f9fafb"}}>{["Description","Qty","Unit Price","Line Total",""].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+        <tbody>{materials.map(m=>{const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0); return <tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px"}}>{m.description}</td><td style={{padding:"8px 10px"}}>{m.qty}</td><td style={{padding:"8px 10px"}}>{fmt$(m.unitPrice)}</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(lt)}</td><td style={{padding:"8px 10px"}}><button onClick={()=>onUpdate(materials.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:16}}>✕</button></td></tr>;})}</tbody>
+      </table></div>}
+    <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
+      <Inp label="Material / Part" value={row.description} placeholder='e.g. Copper pipe ½"' onChange={e=>setRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&add()}/>
+      <Inp label="Qty" type="number" value={row.qty} placeholder="1" onChange={e=>setRow(p=>({...p,qty:e.target.value}))}/>
+      <Inp label="Unit Price $" type="number" value={row.unitPrice} placeholder="0.00" onChange={e=>setRow(p=>({...p,unitPrice:e.target.value}))}/>
+      <div style={{marginBottom:14}}><Btn small onClick={add}>+ Add</Btn></div>
+    </div>
+  </>);
+};
+
+const LaborPanel = ({ data, onChange }) => {
+  const set = (k,v) => onChange({...data,[k]:v});
+  const t = calcTotals(data);
+  const calc = (h,r) => fmt$((parseFloat(h)||0)*(parseFloat(r)||0));
+  return (<>
+    <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:12}}>
+      <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 1</div>
+      <Inp label="Tech 1 Name" value={data.assignedTech||""} placeholder="Full name" onChange={e=>set("assignedTech",e.target.value)}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
+        <Inp label="Hours" type="number" value={data.laborHours||""} placeholder="0.0" onChange={e=>set("laborHours",e.target.value)}/>
+        <Inp label="Rate ($/hr)" type="number" value={data.laborRate||""} placeholder="85.00" onChange={e=>set("laborRate",e.target.value)}/>
+        <div style={{marginBottom:14}}><Lbl>Total</Lbl><div style={{padding:"9px 12px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:14,fontWeight:700,color:"#0f2640",background:"white"}}>{calc(data.laborHours,data.laborRate)}</div></div>
+      </div>
+    </div>
+    <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:16}}>
+      <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 2 <span style={{fontWeight:400,color:"#9ca3af",textTransform:"none",fontSize:11,letterSpacing:0}}>(optional)</span></div>
+      <Inp label="Tech 2 Name" value={data.tech2Name||""} placeholder="Full name" onChange={e=>set("tech2Name",e.target.value)}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
+        <Inp label="Hours" type="number" value={data.laborHours2||""} placeholder="0.0" onChange={e=>set("laborHours2",e.target.value)}/>
+        <Inp label="Rate ($/hr)" type="number" value={data.laborRate2||""} placeholder="85.00" onChange={e=>set("laborRate2",e.target.value)}/>
+        <div style={{marginBottom:14}}><Lbl>Total</Lbl><div style={{padding:"9px 12px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:14,fontWeight:700,color:"#0f2640",background:"white"}}>{calc(data.laborHours2,data.laborRate2)}</div></div>
+      </div>
+    </div>
+    <TotalsBox t={t}/>
+  </>);
+};
+
+// ═══════════════════════════════════════════════════════
+// LOGIN SCREEN
+// ═══════════════════════════════════════════════════════
+const LoginScreen = ({ onLogin, onSetup }) => {
+  const [email, setEmail]   = useState("");
+  const [pass, setPass]     = useState("");
+  const [err, setErr]       = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setErr(""); setLoading(true);
+    try {
+      const auth = await fbSignIn(email, pass);
+      const profile = await fsGet("users", auth.uid);
+      onLogin({ uid: auth.uid, ...profile });
+    } catch(e) {
+      setErr(e.message);
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#091929 0%,#1a3a5c 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"white",borderRadius:16,width:"100%",maxWidth:400,overflow:"hidden",boxShadow:"0 25px 60px rgba(0,0,0,0.4)"}}>
+        <div style={{background:"linear-gradient(135deg,#091929,#1a3a5c)",padding:"32px 32px 24px",textAlign:"center"}}>
+          <div style={{fontSize:11,color:"#f47c00",fontWeight:800,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:6}}>⚙ Work Order System</div>
+          <div style={{fontSize:22,fontWeight:900,color:"white",lineHeight:1.2}}>EXCEL PLUMBING<br/>& HEATING LLC</div>
+        </div>
+        <div style={{padding:"28px 32px"}}>
+          <div style={{fontSize:16,fontWeight:700,color:"#0f2640",marginBottom:20,textAlign:"center"}}>Sign In</div>
+          <Err msg={err}/>
+          <Inp label="Email Address" type="email" value={email} placeholder="you@example.com" onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}/>
+          <Inp label="Password" type="password" value={pass} placeholder="••••••••" onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()}/>
+          <Btn style={{width:"100%",justifyContent:"center"}} onClick={handleLogin} disabled={loading||!email||!pass}>
+            {loading ? "Signing in…" : "Sign In →"}
+          </Btn>
+          <div style={{textAlign:"center",marginTop:20}}>
+            <button onClick={onSetup} style={{background:"none",border:"none",color:"#9ca3af",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+              First time setup / Add employee accounts
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
+// SETUP SCREEN — Create employee accounts
+// ═══════════════════════════════════════════════════════
+const TEAM_SETUP = [
+  { name:"Mark Easterling",  role:"tech" },
+  { name:"Chase Spencer",    role:"tech" },
+  { name:"Ben Rath",         role:"tech" },
+  { name:"Aaron Morris",     role:"tech" },
+  { name:"Eric Braaten",     role:"supervisor" },
+  { name:"Ryan Raisenan",    role:"supervisor" },
+  { name:"Ginger Garrett",   role:"accounting" },
+];
+
+const ROLE_COLORS = { tech:"#0f2640", supervisor:"#92400e", accounting:"#5b21b6" };
+
+const SetupScreen = ({ onBack }) => {
+  const [members, setMembers] = useState(TEAM_SETUP.map(m=>({...m,email:"",pass:"Excel2025!",status:""})));
+  const [creating, setCreating] = useState(false);
+
+  const setField = (i,k,v) => setMembers(ms=>ms.map((m,idx)=>idx===i?{...m,[k]:v}:m));
+
+  const createAll = async () => {
+    setCreating(true);
+    for (let i=0; i<members.length; i++) {
+      const m = members[i];
+      if (!m.email || m.status==="✓ Created") continue;
+      setField(i,"status","Creating…");
+      try {
+        const { uid } = await fbSignUp(m.email, m.pass);
+        await fsSet("users", uid, { name:m.name, email:m.email, role:m.role });
+        setField(i,"status","✓ Created");
+      } catch(e) {
+        setField(i,"status","✗ "+e.message.slice(0,30));
+      }
+    }
+    // Save team config to Firestore
+    try { await fsSet("config","team", DEFAULT_CONFIG); } catch{}
+    setCreating(false);
+  };
+
+  const createOne = async (i) => {
+    const m = members[i];
+    if(!m.email) return;
+    setField(i,"status","Creating…");
+    try {
+      const { uid } = await fbSignUp(m.email, m.pass);
+      await fsSet("users", uid, { name:m.name, email:m.email, role:m.role });
+      setField(i,"status","✓ Created");
+    } catch(e) { setField(i,"status","✗ "+e.message.slice(0,40)); }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#e8edf4",padding:20}}>
+      <div style={{maxWidth:700,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+          <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit"}}>← Back to Login</button>
+          <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>First Time Setup</span>
+        </div>
+        <div style={{background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#1e40af",fontWeight:600}}>
+          📋 Enter each team member's email address, then click "Create Account." Default password is Excel2025! — they can change it later.
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+          {members.map((m,i)=>(
+            <div key={i} style={{background:"white",borderRadius:10,padding:"14px 18px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:ROLE_COLORS[m.role],color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0}}>
+                  {m.name.split(" ").map(w=>w[0]).join("").slice(0,2)}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:800,color:"#0f2640"}}>{m.name}</div>
+                  <div style={{fontSize:11,color:ROLE_COLORS[m.role],fontWeight:700,textTransform:"capitalize"}}>{m.role}</div>
+                </div>
+                {m.status && <span style={{fontSize:12,fontWeight:700,color:m.status.startsWith("✓")?"#059669":m.status.startsWith("✗")?"#dc2626":"#6b7280"}}>{m.status}</span>}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,alignItems:"end"}}>
+                <Inp label="Email" type="email" value={m.email} placeholder={`${m.name.split(" ")[0].toLowerCase()}@yourcompany.com`} onChange={e=>setField(i,"email",e.target.value)}/>
+                <Inp label="Password" type="text" value={m.pass} onChange={e=>setField(i,"pass",e.target.value)}/>
+                <div style={{marginBottom:14}}><Btn small variant="sky" onClick={()=>createOne(i)} disabled={!m.email||creating}>Create</Btn></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Btn variant="navy" onClick={createAll} disabled={creating} style={{width:"100%",justifyContent:"center"}}>
+          {creating ? "Creating accounts…" : "Create All Accounts at Once"}
+        </Btn>
+        <div style={{marginTop:14,fontSize:12,color:"#6b7280",textAlign:"center"}}>
+          After creating accounts, go back to login and sign in with each person's email and password.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
+// WEEKLY HOURS REPORT
+// ═══════════════════════════════════════════════════════
+const WeeklyReport = ({ orders, onBack }) => {
+  const [wk, setWk] = useState(getMondayOf(todayISO()));
+  const we = addDays(wk,6);
+  const jobs = orders.filter(o=>{ const d=o.scheduledDate||o.createdDate; return d&&d>=wk&&d<=we; });
+  const emp = {};
+  const addE = (name,hours,rate,job) => {
+    const h=parseFloat(hours)||0; if(!name?.trim()||h===0) return;
+    const k=name.trim(); if(!emp[k]) emp[k]={hours:0,pay:0,jobs:[]};
+    emp[k].hours+=h; emp[k].pay+=h*(parseFloat(rate)||0);
+    emp[k].jobs.push({woNumber:job.woNumber,date:job.scheduledDate,hours:h,rate:parseFloat(rate)||0,customer:job.customerName||"(No customer)",service:job.serviceType,status:job.status});
+  };
+  jobs.forEach(o=>{addE(o.assignedTech,o.laborHours,o.laborRate,o);addE(o.tech2Name,o.laborHours2,o.laborRate2,o);});
+  const emps = Object.entries(emp).sort((a,b)=>a[0].localeCompare(b[0]));
+  const totalH = emps.reduce((s,[,e])=>s+e.hours,0);
+  const totalP = emps.reduce((s,[,e])=>s+e.pay,0);
+  const [exp, setExp] = useState({});
+
+  const bar = h => { const pct=Math.min(h/40,1); const c=h>40?"#dc2626":h>=32?"#059669":"#f47c00";
+    return <div style={{display:"flex",alignItems:"center",gap:10,flex:1}}>
+      <div style={{flex:1,height:8,background:"#e5e7eb",borderRadius:4,overflow:"hidden"}}><div style={{width:`${pct*100}%`,height:"100%",background:c,borderRadius:4}}/></div>
+      <span style={{fontSize:12,fontWeight:700,color:c,minWidth:40,textAlign:"right"}}>{fmtHrs(h)}</span>
+    </div>;
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📊 Weekly Hours Report</span>
+      </div>
+      <div style={{background:"white",borderRadius:12,padding:"16px 20px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <div><div style={{fontSize:10,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Week of</div><div style={{fontSize:18,fontWeight:900,color:"#0f2640"}}>{fmtWeek(wk)}</div></div>
+        <div style={{display:"flex",gap:8}}><Btn variant="outline" small onClick={()=>setWk(addDays(wk,-7))}>← Prev</Btn><Btn variant="outline" small onClick={()=>setWk(getMondayOf(todayISO()))}>This Week</Btn><Btn variant="outline" small onClick={()=>setWk(addDays(wk,7))}>Next →</Btn></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
+        {[["Active Employees",emps.length,"#0f2640"],["Total Hours",fmtHrs(totalH),"#1e40af"],["Total Labor Cost",fmt$(totalP),"#065f46"]].map(([l,v,c])=>(
+          <div key={l} style={{background:"white",borderRadius:10,padding:"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)",textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:900,color:c}}>{v}</div>
+            <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:3}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      {emps.length===0 ? <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",color:"#9ca3af"}}><div style={{fontSize:40,marginBottom:10}}>📋</div><div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:4}}>No hours logged this week</div></div> : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {emps.map(([name,e])=>(
+            <div key={name} style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",overflow:"hidden"}}>
+              <div onClick={()=>setExp(p=>({...p,[name]:!p[name]}))} style={{padding:"14px 20px",display:"flex",alignItems:"center",gap:16,cursor:"pointer",flexWrap:"wrap"}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#0f2640,#1a3a5c)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>{name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                <div style={{flex:1,minWidth:160}}><div style={{fontSize:15,fontWeight:800,color:"#0f2640",marginBottom:6}}>{name}</div>{bar(e.hours)}</div>
+                <div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:16,fontWeight:900,color:"#059669"}}>{fmt$(e.pay)}</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{e.jobs.length} job{e.jobs.length!==1?"s":""}</div></div>
+                <div style={{fontSize:18,color:"#9ca3af"}}>{exp[name]?"▲":"▼"}</div>
+              </div>
+              {exp[name] && <div style={{borderTop:"1px solid #f3f4f6"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead><tr style={{background:"#f9fafb"}}>{["WO#","Date","Customer","Hours","Rate","Pay","Status"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {e.jobs.map((j,i)=><tr key={i} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"9px 12px",fontWeight:700,color:"#0f2640"}}>{j.woNumber}</td><td style={{padding:"9px 12px"}}>{fmtDate(j.date)}</td><td style={{padding:"9px 12px"}}>{j.customer}</td><td style={{padding:"9px 12px",fontWeight:700}}>{fmtHrs(j.hours)}</td><td style={{padding:"9px 12px"}}>{fmt$(j.rate)}/hr</td><td style={{padding:"9px 12px",fontWeight:700,color:"#059669"}}>{fmt$(j.hours*j.rate)}</td><td style={{padding:"9px 12px"}}><Badge status={j.status}/></td></tr>)}
+                    <tr style={{background:"#f0f9ff",borderTop:"2px solid #93c5fd"}}><td colSpan={3} style={{padding:"9px 12px",fontWeight:800,color:"#1e40af",fontSize:12,textTransform:"uppercase"}}>Totals</td><td style={{padding:"9px 12px",fontWeight:900,color:"#1e40af"}}>{fmtHrs(e.hours)}</td><td/><td style={{padding:"9px 12px",fontWeight:900,color:"#059669"}}>{fmt$(e.pay)}</td><td/></tr>
+                  </tbody>
+                </table>
+                {e.hours>40 && <div style={{padding:"10px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:13,color:"#dc2626",fontWeight:700}}>⚠️ Overtime: {fmtHrs(e.hours-40)} over 40 hrs</div>}
+              </div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
+// TEAM VIEW
+// ═══════════════════════════════════════════════════════
+const TeamView = ({ config, onUpdate, onBack }) => {
+  const [newName, setNewName] = useState({ roster:"", supervisors:"", accountingStaff:"" });
+  const add = async field => {
+    const n=newName[field].trim(); if(!n||config[field]?.includes(n)) return;
+    const updated = {...config,[field]:[...(config[field]||[]),n].sort()};
+    await onUpdate(updated); setNewName(p=>({...p,[field]:""}));
+  };
+  const remove = async (field,name) => { await onUpdate({...config,[field]:config[field].filter(r=>r!==name)}); };
+  const sections = [
+    { field:"roster",        label:"Technicians",      bg:"#f0f4ff", border:"#c7d2fe", tag:"tech",       tagColor:"#1e40af", tagBg:"#e0e7ff" },
+    { field:"supervisors",   label:"Supervisors",      bg:"#fffbeb", border:"#fde68a", tag:"supervisor", tagColor:"#92400e", tagBg:"#fef3c7" },
+    { field:"accountingStaff",label:"Accounting",     bg:"#f5f3ff", border:"#ddd6fe", tag:"accounting", tagColor:"#5b21b6", tagBg:"#ede9fe" },
+  ];
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>👷 Team Management</span>
+      </div>
+      {sections.map(({field,label,bg,border,tag,tagColor,tagBg})=>(
+        <div key={field} style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden",marginBottom:14}}>
+          <div style={{padding:"16px 24px",background:"#f9fafb",borderBottom:"1px solid #f0f0f0"}}><SecHead>{label} ({(config[field]||[]).length})</SecHead></div>
+          <div style={{padding:"18px 24px"}}>
+            <div style={{display:"flex",gap:8,alignItems:"flex-end",marginBottom:14}}>
+              <div style={{flex:1,marginBottom:0}}><Inp label={`Add ${label.slice(0,-1)}`} value={newName[field]} placeholder="Full name" onChange={e=>setNewName(p=>({...p,[field]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&add(field)}/></div>
+              <div style={{marginBottom:14}}><Btn small onClick={()=>add(field)} disabled={!newName[field].trim()}>+ Add</Btn></div>
+            </div>
+            {(config[field]||[]).length===0 ? <div style={{textAlign:"center",padding:"16px 0",color:"#9ca3af",fontSize:13}}>None yet.</div> : (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {(config[field]||[]).map(name=>(
+                  <div key={name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:bg,border:`1px solid ${border}`,borderRadius:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${tagColor},${tagBg})`,color:tagColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800}}>{name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                      <span style={{fontSize:14,fontWeight:700}}>{name}</span>
+                      <span style={{fontSize:10,background:tagBg,color:tagColor,borderRadius:20,padding:"2px 8px",fontWeight:700,textTransform:"uppercase"}}>{tag}</span>
+                    </div>
+                    <button onClick={()=>remove(field,name)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"4px 10px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
+// SUPERVISOR PANEL (editable invoice)
+// ═══════════════════════════════════════════════════════
+const SupervisorPanel = ({ sel, act, setAct, onApprove, supervisors=[] }) => {
+  const [draft, setDraft] = useState({...sel});
+  return (
+    <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #f59e0b"}}>
+      <SecHead>Supervisor Review & Invoice Corrections</SecHead>
+      <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"10px 14px",marginBottom:18,fontSize:13,color:"#92400e",fontWeight:600}}>
+        ✏️ Adjust materials or labor below before approving.
+      </div>
+      <div style={{marginBottom:8,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Materials</div>
+      <MatTable materials={draft.materials||[]} onUpdate={m=>setDraft(p=>({...p,materials:m}))}/>
+      <div style={{borderBottom:"1px solid #e5e7eb",margin:"12px 0"}}/>
+      <div style={{marginBottom:12,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Labor</div>
+      <LaborPanel data={draft} onChange={updated=>setDraft(updated)}/>
+      <div style={{borderBottom:"1px solid #e5e7eb",margin:"16px 0"}}/>
+      <Txt label="Supervisor Notes (optional)" value={act.notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
+      <div style={{marginBottom:14}}>
+        <Lbl>Signing Supervisor</Lbl>
+        <select style={iSt} value={act.name} onChange={e=>setAct(p=>({...p,name:e.target.value}))}>
+          <option value="">— Select your name —</option>
+          {supervisors.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:16,fontSize:14}}>
+        <input type="checkbox" checked={act.checked} onChange={e=>setAct(p=>({...p,checked:e.target.checked}))} style={{width:16,height:16}}/>
+        I have reviewed this invoice and approve it for accounting.
+      </label>
+      <Btn variant="success" disabled={!act.checked||!act.name} onClick={()=>onApprove(draft)}>✓ Approve & Send to Accounting</Btn>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
+// DISPATCH MODAL
+// ═══════════════════════════════════════════════════════
+const DispatchModal = ({ order, roster, onDispatch, onClose }) => {
+  const [tech, setTech]   = useState(order.dispatchedTo||"");
+  const [notes, setNotes] = useState("");
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"white",borderRadius:14,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.3)",overflow:"hidden"}}>
+        <div style={{background:"linear-gradient(135deg,#091929,#1a3a5c)",padding:"18px 24px",color:"white"}}>
+          <div style={{fontSize:10,color:"#f47c00",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Dispatch Job</div>
+          <div style={{fontSize:17,fontWeight:900}}>{order.woNumber} — {order.customerName||"(No customer)"}</div>
+          <div style={{fontSize:12,color:"#7eb8e0",marginTop:2}}>{order.serviceType} · 📅 {fmtDate(order.scheduledDate)}</div>
+        </div>
+        <div style={{padding:"22px 24px"}}>
+          <div style={{marginBottom:14}}>
+            <Lbl>Assign To</Lbl>
+            <select style={iSt} value={tech} onChange={e=>setTech(e.target.value)}>
+              <option value="">— Select technician —</option>
+              {roster.map(r=><option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div style={{marginBottom:16}}><Lbl>Dispatch Notes (optional)</Lbl><textarea style={{...iSt,resize:"vertical",minHeight:70}} value={notes} placeholder="Special instructions, tools needed, access codes…" onChange={e=>setNotes(e.target.value)}/></div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+            <Btn variant="sky" disabled={!tech} onClick={()=>onDispatch(tech,notes)}>📤 Dispatch Job</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════
+function App() {
+  const [user, setUser]         = useState(null); // { uid, name, role, email }
+  const [screen, setScreen]     = useState("login"); // login | setup | app
+  const [orders, setOrders]     = useState([]);
+  const [config, setConfig]     = useState(DEFAULT_CONFIG);
+  const [loading, setLoading]   = useState(false);
+  const [syncing, setSyncing]   = useState(false);
+  const [view, setView]         = useState("dashboard");
+  const [selId, setSelId]       = useState(null);
+  const [filter, setFilter]     = useState("all");
+  const [form, setForm]         = useState({});
+  const [act, setAct]           = useState({name:"",notes:"",checked:false});
+  const [dispOrder, setDispOrder] = useState(null);
+
+  // Load orders + config from Firestore
+  const loadData = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const [ords, cfg] = await Promise.all([fsList("workOrders"), fsGet("config","team").catch(()=>DEFAULT_CONFIG)]);
+      setOrders(ords.sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")));
+      setConfig({...DEFAULT_CONFIG,...cfg});
+    } catch(e) { console.error("Load error:", e); }
+    finally { setSyncing(false); }
+  }, []);
+
+  useEffect(() => { if(screen==="app") { loadData(); const t=setInterval(loadData,30000); return ()=>clearInterval(t); } }, [screen, loadData]);
+
+  const sel = orders.find(o=>o.id===selId);
+
+  const saveOrder = async (o, isNew=false) => {
+    setSyncing(true);
+    try {
+      if (isNew) { const saved=await fsAdd("workOrders",o); setOrders(p=>[saved,...p]); return saved; }
+      else { await fsSet("workOrders",o.id,o); setOrders(p=>p.map(x=>x.id===o.id?o:x)); return o; }
+    } finally { setSyncing(false); }
+  };
+
+  const deleteOrder = async id => { await fsDel("workOrders",id); setOrders(p=>p.filter(o=>o.id!==id)); };
+  const deleteAllClosed = async () => { const closed=orders.filter(o=>o.status==="closed"); await Promise.all(closed.map(o=>fsDel("workOrders",o.id))); setOrders(p=>p.filter(o=>o.status!=="closed")); };
+
+  const patch = async (id, delta) => {
+    const updated = {...orders.find(o=>o.id===id),...delta};
+    await saveOrder(updated);
+    setSelId(id); setView("detail"); setAct({name:"",notes:"",checked:false}); setDispOrder(null);
+  };
+
+  const handleDispatch = async (techName, notes) => {
+    await patch(dispOrder.id,{dispatchedTo:techName,assignedTech:techName,dispatchedAt:nowStamp(),dispatchNotes:notes,status:"dispatched"});
+  };
+
+  const updateConfig = async (newConfig) => {
+    await fsSet("config","team",newConfig);
+    setConfig(newConfig);
+  };
+
+  const handleLogin = (profile) => { setUser(profile); setScreen("app"); setLoading(false); };
+  const handleLogout = () => { TOKEN=null; setUser(null); setScreen("login"); setOrders([]); };
+  const goDash = () => { setView("dashboard"); setDispOrder(null); };
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const visible = (() => {
+    let base = orders;
+    if(user?.role==="tech") base = base.filter(o=>o.dispatchedTo===user.name||o.assignedTech===user.name);
+    if(filter!=="all") base = base.filter(o=>o.status===filter);
+    return base;
+  })();
+  const countOf = s => orders.filter(o=>o.status===s).length;
+
+  // ── HEADER ──
+  const Header = () => (
+    <div style={{background:"linear-gradient(135deg,#091929 0%,#1a3a5c 100%)",color:"white",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 16px rgba(0,0,0,0.4)"}}>
+      <div style={{maxWidth:960,margin:"0 auto",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:9,color:"#f47c00",fontWeight:800,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:2}}>⚙ Work Order System</div>
+          <div style={{fontSize:19,fontWeight:900,letterSpacing:"0.02em"}}>EXCEL PLUMBING & HEATING LLC</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {syncing && <span style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>⟳ syncing…</span>}
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"white"}}>{user?.name}</div>
+            <div style={{fontSize:10,color:"#7eb8e0",textTransform:"capitalize"}}>{user?.role}</div>
+          </div>
+          <button onClick={handleLogout} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:6,color:"white",cursor:"pointer",padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Sign Out</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── SCREENS ──
+  if (screen==="login")  return <LoginScreen onLogin={handleLogin} onSetup={()=>setScreen("setup")}/>;
+  if (screen==="setup")  return <SetupScreen onBack={()=>setScreen("login")}/>;
+
+  const role = user?.role;
+
+  return (
+    <div style={{fontFamily:"system-ui,sans-serif",background:"#e8edf4",minHeight:"100vh",color:"#111827"}}>
+      <Header/>
+      {dispOrder && <DispatchModal order={dispOrder} roster={config.roster} onDispatch={handleDispatch} onClose={()=>setDispOrder(null)}/>}
+      <div style={{maxWidth:960,margin:"0 auto",padding:"20px 16px"}}>
+
+        {/* ── REPORT ── */}
+        {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
+
+        {/* ── TEAM ── */}
+        {view==="team" && <TeamView config={config} onUpdate={updateConfig} onBack={goDash}/>}
+
+        {/* ── DASHBOARD ── */}
+        {view==="dashboard" && (
+          <div>
+            {/* Tech welcome banner */}
+            {role==="tech" && (
+              <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:12,color:"white"}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"#f47c00",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,flexShrink:0}}>{user?.name?.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                <div><div style={{fontSize:15,fontWeight:800}}>Hi, {user?.name?.split(" ")[0]}! 👋</div><div style={{fontSize:12,color:"#7eb8e0",marginTop:2}}>Showing jobs assigned to you · {visible.length} active</div></div>
+                <Btn variant="outline" small onClick={loadData} style={{marginLeft:"auto",color:"white",border:"1px solid rgba(255,255,255,0.3)",background:"transparent"}}>⟳ Refresh</Btn>
+              </div>
+            )}
+
+            {/* Status counts */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:18}}>
+              {Object.entries(STATUSES).map(([key,cfg])=>(
+                <div key={key} onClick={()=>setFilter(filter===key?"all":key)}
+                  style={{background:"white",borderRadius:10,padding:"10px 6px",textAlign:"center",cursor:"pointer",
+                    border:`2px solid ${filter===key?cfg.border:"transparent"}`,boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+                  <div style={{fontSize:22,fontWeight:900,color:cfg.color}}>{countOf(key)}</div>
+                  <div style={{fontSize:8,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.03em",marginTop:3,lineHeight:1.3}}>{cfg.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Toolbar */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <button onClick={()=>setFilter("all")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="all"?"#0f2640":"#e5e7eb",color:filter==="all"?"white":"#374151"}}>All ({orders.length})</button>
+                {role==="supervisor" && <>
+                  <button onClick={()=>setFilter("awaiting_supervisor")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_supervisor"?"#92400e":"#fef3c7",color:filter==="awaiting_supervisor"?"white":"#92400e"}}>Review Queue ({countOf("awaiting_supervisor")})</button>
+                  <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
+                  <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
+                </>}
+                {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
+                {(role==="supervisor"||role==="accounting") && countOf("closed")>0 && (
+                  <button onClick={()=>{ if(window.confirm(`Delete all ${countOf("closed")} closed work orders?`)) deleteAllClosed(); }} style={{padding:"5px 14px",borderRadius:20,border:"1px solid #fca5a5",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"white",color:"#dc2626"}}>🗑 Delete All Closed ({countOf("closed")})</button>
+                )}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {role!=="tech" && <Btn variant="outline" small onClick={loadData}>⟳ Refresh</Btn>}
+                {(role==="supervisor"||role==="accounting") && <Btn onClick={()=>{ setForm(blankOrder()); setView("create"); }}>+ New Work Order</Btn>}
+                {role==="tech" && <Btn onClick={()=>{ setForm(blankOrder()); setView("create"); }}>+ New Work Order</Btn>}
+              </div>
+            </div>
+
+            {/* Job list */}
+            {visible.length===0 ? (
+              <div style={{background:"white",borderRadius:12,padding:"50px 20px",textAlign:"center",color:"#9ca3af"}}>
+                <div style={{fontSize:48,marginBottom:12}}>🔧</div>
+                <div style={{fontSize:17,fontWeight:700,color:"#374151",marginBottom:4}}>{role==="tech"?"No jobs assigned to you yet":"No work orders"}</div>
+                <div style={{fontSize:13}}>{role==="tech"?"Check back after your supervisor dispatches a job.":"Hit \"+ New Work Order\" to get started."}</div>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {visible.map(o=>{
+                  const t=calcTotals(o); const sc=STATUSES[o.status];
+                  const canDispatch = role==="supervisor" && (o.status==="open"||o.status==="dispatched");
+                  return (
+                    <div key={o.id} style={{background:"white",borderRadius:10,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",borderLeft:`4px solid ${sc?.color||"#d1d5db"}`,overflow:"hidden"}}>
+                      <div onClick={()=>{setSelId(o.id);setView("detail");setAct({name:"",notes:"",checked:false});}} style={{padding:"14px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                        <div style={{flex:1,minWidth:180}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:5}}>
+                            <span style={{fontSize:16,fontWeight:900,color:"#0f2640"}}>{o.woNumber}</span>
+                            <Badge status={o.status}/><PBadge priority={o.priority}/>
+                          </div>
+                          <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.customerName||"(No customer)"}</div>
+                          <div style={{fontSize:12,color:"#6b7280"}}>{o.serviceType} · {o.customerAddress||"No address"}</div>
+                          {o.dispatchedTo && <div style={{fontSize:12,color:"#0369a1",fontWeight:600,marginTop:3}}>📤 {o.dispatchedTo}{o.dispatchNotes&&<span style={{color:"#6b7280",fontWeight:400}}> — {o.dispatchNotes.slice(0,50)}</span>}</div>}
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{fontSize:18,fontWeight:900,color:"#0f2640"}}>{fmt$(t.total)}</div>
+                          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>📅 {fmtDate(o.scheduledDate)}</div>
+                          <div style={{fontSize:11,color:"#9ca3af"}}>👷 {o.assignedTech||"Unassigned"}</div>
+                        </div>
+                      </div>
+                      {canDispatch && (
+                        <div style={{borderTop:"1px solid #e0f2fe",background:"#f0f9ff",padding:"8px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <span style={{fontSize:12,color:"#0369a1",fontWeight:600}}>{o.dispatchedTo?`Reassign from ${o.dispatchedTo}?`:"Not yet dispatched"}</span>
+                          <Btn variant="sky" small onClick={e=>{e.stopPropagation();setDispOrder(o);}}>📤 {o.dispatchedTo?"Reassign":"Dispatch"}</Btn>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── CREATE / EDIT ── */}
+        {(view==="create"||view==="edit") && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
+              <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+              <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{view==="create"?`New Work Order · ${form.woNumber}`:`Edit · ${form.woNumber}`}</span>
+            </div>
+            <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+              <div style={{padding:"22px 24px"}}>
+                <SecHead>Job Info</SecHead>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"0 20px"}}>
+                  <Sel label="Service Type" value={form.serviceType} options={SERVICES} onChange={e=>setF("serviceType",e.target.value)}/>
+                  <Sel label="Priority" value={form.priority} options={["Routine","Urgent","Emergency"]} onChange={e=>setF("priority",e.target.value)}/>
+                  <Inp label="Scheduled Date" type="date" value={form.scheduledDate} onChange={e=>setF("scheduledDate",e.target.value)}/>
+                </div>
+                <Inp label="Created By" value={form.createdBy||""} placeholder="Your name" onChange={e=>setF("createdBy",e.target.value)}/>
+              </div>
+              <HR/>
+              <div style={{padding:"22px 24px"}}>
+                <SecHead>Customer Information</SecHead>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+                  <Inp label="Customer Name / Company" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
+                  <Inp label="Phone Number" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
+                  <Inp label="Email Address" value={form.customerEmail||""} placeholder="email@example.com" onChange={e=>setF("customerEmail",e.target.value)}/>
+                </div>
+                <Inp label="Billing Address" value={form.customerAddress||""} placeholder="123 Main St, City, State, ZIP" onChange={e=>setF("customerAddress",e.target.value)}/>
+                <Inp label="Job Site (if different)" value={form.jobLocation||""} placeholder="Leave blank if same" onChange={e=>setF("jobLocation",e.target.value)}/>
+              </div>
+              <HR/>
+              <div style={{padding:"22px 24px"}}>
+                <SecHead>Work Description</SecHead>
+                <Txt label="Work Requested" value={form.description||""} placeholder="Describe the issue or work to be performed…" onChange={e=>setF("description",e.target.value)}/>
+                {view==="edit" && <Txt label="Work Performed (Field Notes)" value={form.workPerformed||""} placeholder="What was done on site…" onChange={e=>setF("workPerformed",e.target.value)}/>}
+              </div>
+              <HR/>
+              <div style={{padding:"22px 24px"}}>
+                <SecHead>Materials & Parts</SecHead>
+                <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)}/>
+              </div>
+              <HR/>
+              <div style={{padding:"22px 24px"}}>
+                <SecHead>Labor</SecHead>
+                <LaborPanel data={form} onChange={updated=>setForm(updated)}/>
+              </div>
+              <div style={{padding:"16px 24px",background:"#f9fafb",borderTop:"1px solid #f0f0f0",display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <Btn variant="outline" onClick={goDash}>Cancel</Btn>
+                <Btn variant="navy" disabled={syncing} onClick={async()=>{
+                  const o={...form};
+                  if(view==="create"){const saved=await saveOrder(o,true);setSelId(saved.id);}
+                  else{await saveOrder(o);setSelId(o.id);}
+                  setView("detail"); setAct({name:"",notes:"",checked:false});
+                }}>💾 {syncing?"Saving…":"Save Work Order"}</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── DETAIL VIEW ── */}
+        {view==="detail" && sel && (()=>{
+          const t = calcTotals(sel);
+          return (
+            <div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+                  <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{sel.woNumber}</span>
+                  <Badge status={sel.status}/><PBadge priority={sel.priority}/>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  {role==="supervisor" && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="sky" small onClick={()=>setDispOrder(sel)}>📤 {sel.dispatchedTo?"Reassign":"Dispatch"}</Btn>}
+                  {(sel.status==="open"||sel.status==="dispatched") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit</Btn>}
+                </div>
+              </div>
+
+              <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+                <div style={{background:"linear-gradient(135deg,#091929 0%,#1a3a5c 100%)",padding:"16px 24px",color:"white"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:14}}>
+                    {[["Service",sel.serviceType],["Scheduled",fmtDate(sel.scheduledDate)],["Tech 1",sel.assignedTech||"—"],["Tech 2",sel.tech2Name||"—"],["Created By",sel.createdBy||"—"]].map(([l,v])=>(
+                      <div key={l}><div style={{fontSize:9,color:"#7eb8e0",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:2}}>{l}</div><div style={{fontSize:14,fontWeight:600}}>{v}</div></div>
+                    ))}
+                  </div>
+                </div>
+
+                {sel.dispatchedTo && <div style={{padding:"10px 24px",background:"#e0f2fe",borderBottom:"1px solid #7dd3fc",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:700,color:"#0369a1"}}>📤 Dispatched to {sel.dispatchedTo}</span><span style={{fontSize:12,color:"#0369a1"}}>{sel.dispatchedAt}</span>{sel.dispatchNotes&&<span style={{fontSize:12,color:"#374151",fontStyle:"italic"}}>— "{sel.dispatchNotes}"</span>}</div>}
+
+                <div style={{padding:"22px 24px"}}>
+                  <SecHead>Customer</SecHead>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 40px"}}>
+                    <div><InfoRow label="Name" value={sel.customerName}/><InfoRow label="Phone" value={sel.customerPhone}/><InfoRow label="Email" value={sel.customerEmail}/></div>
+                    <div><InfoRow label="Billing Address" value={sel.customerAddress}/><InfoRow label="Job Location" value={sel.jobLocation||sel.customerAddress}/></div>
+                  </div>
+                </div>
+                <HR/>
+                <div style={{padding:"22px 24px"}}>
+                  <SecHead>Work Description</SecHead>
+                  <div style={{fontSize:14,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:sel.workPerformed?20:0}}>{sel.description||"—"}</div>
+                  {sel.workPerformed && <><SecHead>Work Performed</SecHead><div style={{fontSize:14,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{sel.workPerformed}</div></>}
+                </div>
+                <HR/>
+                <div style={{padding:"22px 24px"}}>
+                  <SecHead>Materials & Labor</SecHead>
+                  {(sel.materials||[]).length>0 ? (
+                    <div style={{overflowX:"auto",marginBottom:12}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:360}}>
+                        <thead><tr style={{background:"#f9fafb"}}>{["Description","Qty","Unit Price","Line Total"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {sel.materials.map(m=><tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px"}}>{m.description}</td><td style={{padding:"8px 10px"}}>{m.qty}</td><td style={{padding:"8px 10px"}}>{fmt$(m.unitPrice)}</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0))}</td></tr>)}
+                          {(parseFloat(sel.laborHours)||0)>0 && <tr style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td colSpan={3} style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 1 ({sel.assignedTech||"—"}) — {sel.laborHours} hrs × {fmt$(sel.laborRate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(t.lab1)}</td></tr>}
+                          {(parseFloat(sel.laborHours2)||0)>0 && <tr style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td colSpan={3} style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 2 ({sel.tech2Name||"—"}) — {sel.laborHours2} hrs × {fmt$(sel.laborRate2)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(t.lab2)}</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  ):<p style={{fontSize:13,color:"#9ca3af",marginBottom:12}}>No materials logged.</p>}
+                  <TotalsBox t={t}/>
+                </div>
+
+                {(sel.techSigned||sel.supervisorSigned||sel.accountingClosedBy) && <>
+                  <HR/>
+                  <div style={{padding:"22px 24px"}}>
+                    <SecHead>Approval Trail</SecHead>
+                    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                      {sel.techSigned && <div style={{display:"flex",gap:12,alignItems:"flex-start",fontSize:13}}><span style={{width:24,height:24,borderRadius:"50%",background:"#dcfce7",color:"#16a34a",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,flexShrink:0,fontSize:12}}>✓</span><div><strong>Tech:</strong> {sel.techSignedBy} <span style={{color:"#9ca3af",marginLeft:6}}>{sel.techSignedAt}</span></div></div>}
+                      {sel.supervisorSigned && <div style={{display:"flex",gap:12,alignItems:"flex-start",fontSize:13}}><span style={{width:24,height:24,borderRadius:"50%",background:"#dcfce7",color:"#16a34a",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,flexShrink:0,fontSize:12}}>✓</span><div><div><strong>Supervisor:</strong> {sel.supervisorSignedBy} <span style={{color:"#9ca3af",marginLeft:6}}>{sel.supervisorSignedAt}</span></div>{sel.supervisorNotes&&<div style={{color:"#374151",marginTop:2}}>Note: {sel.supervisorNotes}</div>}</div></div>}
+                      {sel.accountingClosedBy && <div style={{display:"flex",gap:12,alignItems:"flex-start",fontSize:13}}><span style={{width:24,height:24,borderRadius:"50%",background:"#dcfce7",color:"#16a34a",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,flexShrink:0,fontSize:12}}>✓</span><div><div><strong>Accounting:</strong> {sel.accountingClosedBy} <span style={{color:"#9ca3af",marginLeft:6}}>{sel.accountingClosedAt}</span></div>{sel.accountingNotes&&<div style={{color:"#374151",marginTop:2}}>Note: {sel.accountingNotes}</div>}</div></div>}
+                    </div>
+                  </div>
+                </>}
+
+                {/* Tech actions */}
+                {role==="tech" && (sel.status==="open"||sel.status==="dispatched") && (
+                  <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #fbbf24"}}>
+                    <div style={{fontWeight:700,fontSize:14,color:"#92400e",marginBottom:12}}>Ready to begin? Start this job.</div>
+                    <Btn onClick={()=>patch(sel.id,{status:"in_progress"})}>▶ Start Job</Btn>
+                  </div>
+                )}
+                {role==="tech" && sel.status==="in_progress" && (
+                  <div style={{padding:"20px 24px",background:"#f0f9ff",borderTop:"3px solid #38bdf8"}}>
+                    <SecHead>Complete & Submit for Supervisor</SecHead>
+                    <Txt label="Work Performed" value={act.notes} rows={3} placeholder="What was done, parts replaced, findings…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
+                    <Inp label="Your Name" value={act.name} placeholder="Full name" onChange={e=>setAct(p=>({...p,name:e.target.value}))}/>
+                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:16,fontSize:14}}>
+                      <input type="checkbox" checked={act.checked} onChange={e=>setAct(p=>({...p,checked:e.target.checked}))} style={{width:16,height:16}}/>
+                      I confirm this job is complete and ready for supervisor review.
+                    </label>
+                    <Btn disabled={!act.checked||!act.name} onClick={()=>patch(sel.id,{status:"awaiting_supervisor",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp()})}>✓ Submit for Supervisor Review</Btn>
+                  </div>
+                )}
+                {role==="tech" && sel.status==="awaiting_supervisor" && (
+                  <div style={{padding:"18px 24px",background:"#fffbeb",borderTop:"3px solid #fbbf24",display:"flex",gap:10,alignItems:"center"}}>
+                    <span style={{fontSize:20}}>⏳</span><div style={{fontSize:14,color:"#92400e",fontWeight:600}}>Submitted — awaiting supervisor review.</div>
+                  </div>
+                )}
+
+                {/* Supervisor actions */}
+                {role==="supervisor" && sel.status==="awaiting_supervisor" && (
+                  <SupervisorPanel sel={sel} act={act} setAct={setAct} supervisors={config.supervisors||[]}
+                    onApprove={draft=>patch(sel.id,{...draft,status:"awaiting_accounting",supervisorNotes:act.notes,supervisorSigned:true,supervisorSignedBy:act.name,supervisorSignedAt:nowStamp()})}/>
+                )}
+                {role==="supervisor" && sel.status==="awaiting_accounting" && (
+                  <div style={{padding:"18px 24px",background:"#f5f3ff",borderTop:"3px solid #8b5cf6",display:"flex",gap:10,alignItems:"center"}}>
+                    <span style={{fontSize:20}}>📤</span><div style={{fontSize:14,color:"#5b21b6",fontWeight:600}}>Approved — in accounting queue.</div>
+                  </div>
+                )}
+
+                {/* Accounting actions */}
+                {role==="accounting" && sel.status==="awaiting_accounting" && (
+                  <div style={{padding:"20px 24px",background:"#f5f3ff",borderTop:"3px solid #8b5cf6"}}>
+                    <SecHead>Process & Close Job</SecHead>
+                    <div style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#5b21b6",fontWeight:600}}>
+                      💰 Total: {fmt$(t.total)} &nbsp;·&nbsp; Materials tax (8%): {fmt$(t.tax)} &nbsp;·&nbsp; Labor (untaxed): {fmt$(t.lab)}
+                    </div>
+                    <Txt label="Accounting Notes" value={act.notes} rows={2} placeholder="Invoice #, payment received…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
+                    <div style={{marginBottom:14}}>
+                      <Lbl>Processed By</Lbl>
+                      <select style={iSt} value={act.name} onChange={e=>setAct(p=>({...p,name:e.target.value}))}>
+                        <option value="">— Select your name —</option>
+                        {(config.accountingStaff||[]).map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <Btn variant="purple" disabled={!act.name} onClick={()=>patch(sel.id,{status:"closed",accountingNotes:act.notes,accountingClosedBy:act.name,accountingClosedAt:nowStamp()})}>✓ Close & Archive Job</Btn>
+                  </div>
+                )}
+
+                {/* Closed */}
+                {sel.status==="closed" && (
+                  <div style={{padding:"20px 24px",background:"#ecfdf5",borderTop:"3px solid #34d399",display:"flex",gap:14,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
+                    <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                      <span style={{fontSize:32}}>✅</span>
+                      <div><div style={{fontWeight:800,fontSize:15,color:"#065f46"}}>Job Fully Closed</div><div style={{fontSize:13,color:"#047857",marginTop:2}}>Processed by accounting and archived.</div></div>
+                    </div>
+                    {(role==="supervisor"||role==="accounting") && (
+                      <button onClick={()=>{ if(window.confirm(`Permanently delete ${sel.woNumber}?`)){ deleteOrder(sel.id); goDash(); } }} style={{background:"none",border:"1px solid #fca5a5",borderRadius:8,color:"#dc2626",cursor:"pointer",padding:"7px 14px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>🗑 Delete Record</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+      </div>
+      <div style={{textAlign:"center",padding:"20px 16px",fontSize:11,color:"#9ca3af",fontWeight:600,letterSpacing:"0.05em"}}>
+        EXCEL PLUMBING & HEATING LLC · Work Order System · Live on Firebase
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
