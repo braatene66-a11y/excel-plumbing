@@ -104,6 +104,7 @@ const calcTotals = (o={}) => {
 
 const blankOrder = () => ({
   woNumber:genWO(), status:"open", priority:"Routine", serviceType:"Plumbing Repair",
+  jobName:"",
   createdDate:todayISO(), scheduledDate:todayISO(), createdBy:"", customerName:"",
   customerPhone:"", customerEmail:"", customerAddress:"", jobLocation:"",
   description:"", assignedTech:"", tech2Name:"", workPerformed:"", materials:[],
@@ -558,7 +559,7 @@ const DispatchModal = ({ order, roster, onDispatch, onClose }) => {
       <div style={{background:"white",borderRadius:14,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.3)",overflow:"hidden"}}>
         <div style={{background:"linear-gradient(135deg,#091929,#1a3a5c)",padding:"18px 24px",color:"white"}}>
           <div style={{fontSize:10,color:"#f47c00",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Dispatch Job</div>
-          <div style={{fontSize:17,fontWeight:900}}>{order.woNumber} — {order.customerName||"(No customer)"}</div>
+          <div style={{fontSize:17,fontWeight:900}}>{order.woNumber} — {order.jobName||order.customerName||"(No customer)"}</div>
           <div style={{fontSize:12,color:"#7eb8e0",marginTop:2}}>{order.serviceType} · 📅 {fmtDate(order.scheduledDate)}</div>
         </div>
         <div style={{padding:"22px 24px"}}>
@@ -828,6 +829,7 @@ function App() {
                             <span style={{fontSize:16,fontWeight:900,color:"#0f2640"}}>{o.woNumber}</span>
                             <Badge status={o.status}/><PBadge priority={o.priority}/>
                           </div>
+                          {o.jobName && <div style={{fontSize:15,fontWeight:800,color:"#f47c00",marginBottom:3}}>{o.jobName}</div>}
                           <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.customerName||"(No customer)"}</div>
                           <div style={{fontSize:12,color:"#6b7280"}}>{o.serviceType} · {o.customerAddress||"No address"}</div>
                           {o.dispatchedTo && <div style={{fontSize:12,color:"#0369a1",fontWeight:600,marginTop:3}}>📤 {o.dispatchedTo}{o.dispatchNotes&&<span style={{color:"#6b7280",fontWeight:400}}> — {o.dispatchNotes.slice(0,50)}</span>}</div>}
@@ -857,11 +859,12 @@ function App() {
           <div>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
               <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
-              <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{view==="create"?`New Work Order · ${form.woNumber}`:`Edit · ${form.woNumber}`}</span>
+              <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{view==="create"?`New Work Order · ${form.woNumber}`:`Edit · ${form.woNumber}`}{form.jobName&&<span style={{color:"#f47c00"}}> · {form.jobName}</span>}</span>
             </div>
             <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
               <div style={{padding:"22px 24px"}}>
                 <SecHead>Job Info</SecHead>
+                <Inp label="Job Name / Description" value={form.jobName||""} placeholder="e.g. Smith Boiler Repair, Johnson New Install, 123 Main St Leak…" onChange={e=>setF("jobName",e.target.value)}/>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"0 20px"}}>
                   <Sel label="Service Type" value={form.serviceType} options={SERVICES} onChange={e=>setF("serviceType",e.target.value)}/>
                   <Sel label="Priority" value={form.priority} options={["Routine","Urgent","Emergency"]} onChange={e=>setF("priority",e.target.value)}/>
@@ -933,6 +936,7 @@ function App() {
                 <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                   <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
                   <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{sel.woNumber}</span>
+                  {sel.jobName && <span style={{fontSize:18,fontWeight:800,color:"#f47c00"}}>· {sel.jobName}</span>}
                   <Badge status={sel.status}/><PBadge priority={sel.priority}/>
                 </div>
                 <div style={{display:"flex",gap:8}}>
