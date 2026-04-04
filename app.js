@@ -107,7 +107,7 @@ const blankOrder = () => ({
   createdDate:todayISO(), scheduledDate:todayISO(), createdBy:"", customerName:"",
   customerPhone:"", customerEmail:"", customerAddress:"", jobLocation:"",
   description:"", assignedTech:"", tech2Name:"", workPerformed:"", materials:[],
-  laborHours:"", laborRate:"85", laborHours2:"", laborRate2:"85",
+  laborHours:"", laborRate:"120", laborHours2:"", laborRate2:"80",
   dispatchedTo:"", dispatchedAt:"", dispatchNotes:"",
   techSigned:false, techSignedBy:"", techSignedAt:"",
   supervisorNotes:"", supervisorSigned:false, supervisorSignedBy:"", supervisorSignedAt:"",
@@ -177,7 +177,7 @@ const LaborPanel = ({ data, onChange }) => {
       <Inp label="Tech 1 Name" value={data.assignedTech||""} placeholder="Full name" onChange={e=>set("assignedTech",e.target.value)}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
         <Inp label="Hours" type="number" value={data.laborHours||""} placeholder="0.0" onChange={e=>set("laborHours",e.target.value)}/>
-        <Inp label="Rate ($/hr)" type="number" value={data.laborRate||""} placeholder="85.00" onChange={e=>set("laborRate",e.target.value)}/>
+        <Inp label="Rate ($/hr)" type="number" value={data.laborRate||""} placeholder="120.00" onChange={e=>set("laborRate",e.target.value)}/>
         <div style={{marginBottom:14}}><Lbl>Total</Lbl><div style={{padding:"9px 12px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:14,fontWeight:700,color:"#0f2640",background:"white"}}>{calc(data.laborHours,data.laborRate)}</div></div>
       </div>
     </div>
@@ -186,7 +186,7 @@ const LaborPanel = ({ data, onChange }) => {
       <Inp label="Tech 2 Name" value={data.tech2Name||""} placeholder="Full name" onChange={e=>set("tech2Name",e.target.value)}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
         <Inp label="Hours" type="number" value={data.laborHours2||""} placeholder="0.0" onChange={e=>set("laborHours2",e.target.value)}/>
-        <Inp label="Rate ($/hr)" type="number" value={data.laborRate2||""} placeholder="85.00" onChange={e=>set("laborRate2",e.target.value)}/>
+        <Inp label="Rate ($/hr)" type="number" value={data.laborRate2||""} placeholder="80.00" onChange={e=>set("laborRate2",e.target.value)}/>
         <div style={{marginBottom:14}}><Lbl>Total</Lbl><div style={{padding:"9px 12px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:14,fontWeight:700,color:"#0f2640",background:"white"}}>{calc(data.laborHours2,data.laborRate2)}</div></div>
       </div>
     </div>
