@@ -93,10 +93,15 @@ const addDays   = (d,n) => { const dt=new Date(d+"T12:00:00"); dt.setDate(dt.get
 const fmtWeek   = m => { const s=new Date(m+"T12:00:00"); const e=new Date(addDays(m,6)+"T12:00:00"); const o={month:"short",day:"numeric"}; return `${s.toLocaleDateString("en-US",o)} – ${e.toLocaleDateString("en-US",o)}, ${e.getFullYear()}`; };
 
 const calcTotals = (o={}) => {
-  const { materials=[], laborHours=0, laborRate=0, laborHours2=0, laborRate2=0 } = o;
+  const { materials=[], laborLines1=[], laborLines2=[], laborHours=0, laborRate=0, laborHours2=0, laborRate2=0 } = o;
   const mat  = materials.reduce((s,m)=>s+(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0),0);
-  const lab1 = (parseFloat(laborHours)||0)*(parseFloat(laborRate)||0);
-  const lab2 = (parseFloat(laborHours2)||0)*(parseFloat(laborRate2)||0);
+  // Support both new (laborLines arrays) and legacy (single hours/rate) format
+  const lab1 = laborLines1.length>0
+    ? laborLines1.reduce((s,l)=>s+(parseFloat(l.hours)||0)*(parseFloat(l.rate)||0),0)
+    : (parseFloat(laborHours)||0)*(parseFloat(laborRate)||0);
+  const lab2 = laborLines2.length>0
+    ? laborLines2.reduce((s,l)=>s+(parseFloat(l.hours)||0)*(parseFloat(l.rate)||0),0)
+    : (parseFloat(laborHours2)||0)*(parseFloat(laborRate2)||0);
   const lab  = lab1+lab2;
   const tax  = mat*0.08;
   return { mat, lab1, lab2, lab, tax, sub:mat+lab, total:mat+lab+tax };
@@ -108,7 +113,8 @@ const blankOrder = () => ({
   createdDate:todayISO(), scheduledDate:todayISO(), createdBy:"", customerName:"",
   customerPhone:"", customerEmail:"", customerAddress:"", jobLocation:"",
   description:"", assignedTech:"", tech2Name:"", workPerformed:"", materials:[],
-  laborHours:"", laborRate:"120", laborHours2:"", laborRate2:"80",
+  laborLines1:[{id:1,description:"",hours:"",rate:"120"}],
+  laborLines2:[],
   dispatchedTo:"", dispatchedAt:"", dispatchNotes:"",
   techSigned:false, techSignedBy:"", techSignedAt:"",
   supervisorNotes:"", supervisorSigned:false, supervisorSignedBy:"", supervisorSignedAt:"",
@@ -168,28 +174,78 @@ const MatTable = ({ materials=[], onUpdate }) => {
   </>);
 };
 
+// Labor line item table for one technician
+const LaborLines = ({ lines=[], defaultRate="120", onChange }) => {
+  const addLine = () => onChange([...lines, {id:Date.now(), description:"", hours:"", rate:defaultRate}]);
+  const removeLine = (id) => onChange(lines.filter(l=>l.id!==id));
+  const setLine = (id,k,v) => onChange(lines.map(l=>l.id===id?{...l,[k]:v}:l));
+  const subtotal = lines.reduce((s,l)=>s+(parseFloat(l.hours)||0)*(parseFloat(l.rate)||0),0);
+  return (
+    <div>
+      {lines.length>0 && (
+        <div style={{overflowX:"auto",marginBottom:10}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:420}}>
+            <thead>
+              <tr style={{background:"#f9fafb"}}>
+                {["Day / Description","Hours","Rate ($/hr)","Line Total",""].map(h=>(
+                  <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map(l=>{
+                const lt=(parseFloat(l.hours)||0)*(parseFloat(l.rate)||0);
+                return (
+                  <tr key={l.id} style={{borderTop:"1px solid #f3f4f6"}}>
+                    <td style={{padding:"6px 8px"}}>
+                      <input style={{...iSt,padding:"6px 8px",fontSize:13}} value={l.description} placeholder="e.g. Day 1 - Monday" onChange={e=>setLine(l.id,"description",e.target.value)}/>
+                    </td>
+                    <td style={{padding:"6px 8px"}}>
+                      <input style={{...iSt,padding:"6px 8px",fontSize:13,width:70}} type="number" value={l.hours} placeholder="0.0" onChange={e=>setLine(l.id,"hours",e.target.value)}/>
+                    </td>
+                    <td style={{padding:"6px 8px"}}>
+                      <input style={{...iSt,padding:"6px 8px",fontSize:13,width:80}} type="number" value={l.rate} placeholder={defaultRate} onChange={e=>setLine(l.id,"rate",e.target.value)}/>
+                    </td>
+                    <td style={{padding:"6px 10px",fontWeight:700,color:"#0f2640",whiteSpace:"nowrap"}}>{fmt$(lt)}</td>
+                    <td style={{padding:"6px 8px"}}>
+                      <button onClick={()=>removeLine(l.id)} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:16,padding:0}}>✕</button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {lines.length>0 && (
+                <tr style={{background:"#f0f9ff",borderTop:"2px solid #93c5fd"}}>
+                  <td colSpan={3} style={{padding:"7px 10px",fontWeight:800,color:"#1e40af",fontSize:12,textTransform:"uppercase"}}>Total</td>
+                  <td style={{padding:"7px 10px",fontWeight:900,color:"#1e40af"}}>{fmt$(subtotal)}</td>
+                  <td/>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <Btn small variant="outline" onClick={addLine}>+ Add {lines.length===0?"Labor Line":"Another Day"}</Btn>
+    </div>
+  );
+};
+
 const LaborPanel = ({ data, onChange }) => {
   const set = (k,v) => onChange({...data,[k]:v});
   const t = calcTotals(data);
-  const calc = (h,r) => fmt$((parseFloat(h)||0)*(parseFloat(r)||0));
+  const lines1 = data.laborLines1||[];
+  const lines2 = data.laborLines2||[];
   return (<>
     <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:12}}>
       <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 1</div>
       <Inp label="Tech 1 Name" value={data.assignedTech||""} placeholder="Full name" onChange={e=>set("assignedTech",e.target.value)}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
-        <Inp label="Hours" type="number" value={data.laborHours||""} placeholder="0.0" onChange={e=>set("laborHours",e.target.value)}/>
-        <Inp label="Rate ($/hr)" type="number" value={data.laborRate||""} placeholder="120.00" onChange={e=>set("laborRate",e.target.value)}/>
-        <div style={{marginBottom:14}}><Lbl>Total</Lbl><div style={{padding:"9px 12px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:14,fontWeight:700,color:"#0f2640",background:"white"}}>{calc(data.laborHours,data.laborRate)}</div></div>
-      </div>
+      <LaborLines lines={lines1} defaultRate="120" onChange={v=>set("laborLines1",v)}/>
     </div>
     <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:16}}>
-      <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 2 <span style={{fontWeight:400,color:"#9ca3af",textTransform:"none",fontSize:11,letterSpacing:0}}>(optional)</span></div>
-      <Inp label="Tech 2 Name" value={data.tech2Name||""} placeholder="Full name" onChange={e=>set("tech2Name",e.target.value)}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
-        <Inp label="Hours" type="number" value={data.laborHours2||""} placeholder="0.0" onChange={e=>set("laborHours2",e.target.value)}/>
-        <Inp label="Rate ($/hr)" type="number" value={data.laborRate2||""} placeholder="80.00" onChange={e=>set("laborRate2",e.target.value)}/>
-        <div style={{marginBottom:14}}><Lbl>Total</Lbl><div style={{padding:"9px 12px",border:"1px solid #e5e7eb",borderRadius:8,fontSize:14,fontWeight:700,color:"#0f2640",background:"white"}}>{calc(data.laborHours2,data.laborRate2)}</div></div>
+      <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>
+        Technician 2 <span style={{fontWeight:400,color:"#9ca3af",textTransform:"none",fontSize:11,letterSpacing:0}}>(optional)</span>
       </div>
+      <Inp label="Tech 2 Name" value={data.tech2Name||""} placeholder="Full name" onChange={e=>set("tech2Name",e.target.value)}/>
+      <LaborLines lines={lines2} defaultRate="80" onChange={v=>set("laborLines2",v)}/>
     </div>
     <TotalsBox t={t}/>
   </>);
@@ -357,7 +413,15 @@ const WeeklyReport = ({ orders, onBack }) => {
     emp[k].hours+=h; emp[k].pay+=h*(parseFloat(rate)||0);
     emp[k].jobs.push({woNumber:job.woNumber,date:job.scheduledDate,hours:h,rate:parseFloat(rate)||0,customer:job.customerName||"(No customer)",service:job.serviceType,status:job.status});
   };
-  jobs.forEach(o=>{addE(o.assignedTech,o.laborHours,o.laborRate,o);addE(o.tech2Name,o.laborHours2,o.laborRate2,o);});
+  jobs.forEach(o=>{
+    // Support both new (laborLines) and legacy (single hours/rate) format
+    const tot1 = (o.laborLines1||[]).length>0 ? (o.laborLines1||[]).reduce((s,l)=>s+(parseFloat(l.hours)||0),0) : (parseFloat(o.laborHours)||0);
+    const rate1 = (o.laborLines1||[]).length>0 ? ((o.laborLines1||[])[0]?.rate||"120") : (o.laborRate||"120");
+    const tot2 = (o.laborLines2||[]).length>0 ? (o.laborLines2||[]).reduce((s,l)=>s+(parseFloat(l.hours)||0),0) : (parseFloat(o.laborHours2)||0);
+    const rate2 = (o.laborLines2||[]).length>0 ? ((o.laborLines2||[])[0]?.rate||"80") : (o.laborRate2||"80");
+    addE(o.assignedTech, tot1, rate1, o);
+    addE(o.tech2Name, tot2, rate2, o);
+  });
   const emps = Object.entries(emp).sort((a,b)=>a[0].localeCompare(b[0]));
   const totalH = emps.reduce((s,[,e])=>s+e.hours,0);
   const totalP = emps.reduce((s,[,e])=>s+e.pay,0);
@@ -1045,8 +1109,16 @@ function App() {
                         <thead><tr style={{background:"#f9fafb"}}>{["Description","Qty","Unit Price","Line Total"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                         <tbody>
                           {sel.materials.map(m=><tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px"}}>{m.description}</td><td style={{padding:"8px 10px"}}>{m.qty}</td><td style={{padding:"8px 10px"}}>{fmt$(m.unitPrice)}</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0))}</td></tr>)}
-                          {(parseFloat(sel.laborHours)||0)>0 && <tr style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td colSpan={3} style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 1 ({sel.assignedTech||"—"}) — {sel.laborHours} hrs × {fmt$(sel.laborRate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(t.lab1)}</td></tr>}
-                          {(parseFloat(sel.laborHours2)||0)>0 && <tr style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td colSpan={3} style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 2 ({sel.tech2Name||"—"}) — {sel.laborHours2} hrs × {fmt$(sel.laborRate2)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(t.lab2)}</td></tr>}
+                          {/* Tech 1 labor lines */}
+                          {(sel.laborLines1||[]).length>0
+                            ? (sel.laborLines1||[]).map((l,i)=>(parseFloat(l.hours)||0)>0&&<tr key={l.id||i} style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 1 — {sel.assignedTech||"—"}</td><td style={{padding:"8px 10px",color:"#374151"}}>{l.description||`Day ${i+1}`}</td><td style={{padding:"8px 10px",color:"#374151"}}>{l.hours} hrs × {fmt$(l.rate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0))}</td></tr>)
+                            : (parseFloat(sel.laborHours)||0)>0&&<tr style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td colSpan={3} style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 1 ({sel.assignedTech||"—"}) — {sel.laborHours} hrs × {fmt$(sel.laborRate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(t.lab1)}</td></tr>
+                          }
+                          {/* Tech 2 labor lines */}
+                          {(sel.laborLines2||[]).length>0
+                            ? (sel.laborLines2||[]).map((l,i)=>(parseFloat(l.hours)||0)>0&&<tr key={l.id||i} style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 2 — {sel.tech2Name||"—"}</td><td style={{padding:"8px 10px",color:"#374151"}}>{l.description||`Day ${i+1}`}</td><td style={{padding:"8px 10px",color:"#374151"}}>{l.hours} hrs × {fmt$(l.rate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0))}</td></tr>)
+                            : (parseFloat(sel.laborHours2)||0)>0&&<tr style={{borderTop:"1px solid #e5e7eb",background:"#fafafa"}}><td colSpan={3} style={{padding:"8px 10px",fontWeight:600,color:"#6b7280"}}>Tech 2 ({sel.tech2Name||"—"}) — {sel.laborHours2} hrs × {fmt$(sel.laborRate2)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(t.lab2)}</td></tr>
+                          }
                         </tbody>
                       </table>
                     </div>
