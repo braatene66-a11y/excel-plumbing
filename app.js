@@ -585,8 +585,9 @@ const DispatchModal = ({ order, roster, onDispatch, onClose }) => {
 // ═══════════════════════════════════════════════════════
 function App() {
   const [user, setUser]         = useState(null); // { uid, name, role, email }
-  const [screen, setScreen]     = useState("login"); // login | setup | app
+  const [screen, setScreen]     = useState("login");
   const [orders, setOrders]     = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [config, setConfig]     = useState(DEFAULT_CONFIG);
   const [loading, setLoading]   = useState(false);
   const [syncing, setSyncing]   = useState(false);
@@ -601,9 +602,14 @@ function App() {
   const loadData = useCallback(async () => {
     setSyncing(true);
     try {
-      const [ords, cfg] = await Promise.all([fsList("workOrders"), fsGet("config","team").catch(()=>DEFAULT_CONFIG)]);
+      const [ords, cfg, custs] = await Promise.all([
+        fsList("workOrders"),
+        fsGet("config","team").catch(()=>DEFAULT_CONFIG),
+        fsList("customers").catch(()=>[]),
+      ]);
       setOrders(ords.sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")));
       setConfig({...DEFAULT_CONFIG,...cfg});
+      setCustomers(custs.sort((a,b)=>(a.customerName||"").localeCompare(b.customerName||"")));
     } catch(e) { console.error("Load error:", e); }
     finally { setSyncing(false); }
   }, []);
@@ -615,13 +621,41 @@ function App() {
   const saveOrder = async (o, isNew=false) => {
     setSyncing(true);
     try {
-      if (isNew) { const saved=await fsAdd("workOrders",o); setOrders(p=>[saved,...p]); return saved; }
-      else { await fsSet("workOrders",o.id,o); setOrders(p=>p.map(x=>x.id===o.id?o:x)); return o; }
+      let result;
+      if (isNew) { result=await fsAdd("workOrders",o); setOrders(p=>[result,...p]); }
+      else { await fsSet("workOrders",o.id,o); setOrders(p=>p.map(x=>x.id===o.id?o:x)); result=o; }
+      await saveCustomerFromOrder(o);
+      return result;
     } finally { setSyncing(false); }
   };
 
   const deleteOrder = async id => { await fsDel("workOrders",id); setOrders(p=>p.filter(o=>o.id!==id)); };
   const deleteAllClosed = async () => { const closed=orders.filter(o=>o.status==="closed"); await Promise.all(closed.map(o=>fsDel("workOrders",o.id))); setOrders(p=>p.filter(o=>o.status!=="closed")); };
+
+  // Auto-save customer to directory when saving a work order
+  const saveCustomerFromOrder = async (o) => {
+    if(!o.customerName?.trim()) return;
+    const key = o.customerName.trim().toLowerCase().replace(/\s+/g,"_");
+    try {
+      await fsSet("customers", key, {
+        customerName: o.customerName.trim(),
+        customerPhone: o.customerPhone||"",
+        customerEmail: o.customerEmail||"",
+        customerAddress: o.customerAddress||"",
+        updatedDate: todayISO(),
+      });
+      setCustomers(p=>{
+        const exists = p.find(c=>c.id===key);
+        const updated = { id:key, customerName:o.customerName.trim(), customerPhone:o.customerPhone||"", customerEmail:o.customerEmail||"", customerAddress:o.customerAddress||"", updatedDate:todayISO() };
+        return exists ? p.map(c=>c.id===key?updated:c) : [...p, updated].sort((a,b)=>a.customerName.localeCompare(b.customerName));
+      });
+    } catch(e){ console.error("Customer save error:",e); }
+  };
+
+  const deleteCustomer = async (id) => {
+    await fsDel("customers", id);
+    setCustomers(p=>p.filter(c=>c.id!==id));
+  };
 
   const patch = async (id, delta) => {
     const updated = {...orders.find(o=>o.id===id),...delta};
@@ -686,7 +720,46 @@ function App() {
         {/* ── REPORT ── */}
         {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
 
-        {/* ── TEAM ── */}
+        {/* ── CUSTOMER DIRECTORY ── */}
+        {view==="customers" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+              <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+              <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Customer Directory</span>
+              <span style={{fontSize:13,color:"#9ca3af"}}>({customers.length} customers)</span>
+            </div>
+            {customers.length===0 ? (
+              <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+                <div style={{fontSize:40,marginBottom:10}}>📋</div>
+                <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>No customers yet</div>
+                <div style={{fontSize:13}}>Customers are saved automatically when you create work orders.</div>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {customers.map(c=>(
+                  <div key={c.id} style={{background:"white",borderRadius:10,padding:"14px 18px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                    <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#0f2640,#1a3a5c)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>
+                      {(c.customerName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+                    </div>
+                    <div style={{flex:1,minWidth:180}}>
+                      <div style={{fontSize:15,fontWeight:800,color:"#0f2640",marginBottom:3}}>{c.customerName}</div>
+                      <div style={{fontSize:12,color:"#6b7280",display:"flex",gap:12,flexWrap:"wrap"}}>
+                        {c.customerPhone && <span>📞 {c.customerPhone}</span>}
+                        {c.customerEmail && <span>✉️ {c.customerEmail}</span>}
+                      </div>
+                      {c.customerAddress && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>📍 {c.customerAddress}</div>}
+                    </div>
+                    <button onClick={()=>{ if(window.confirm(`Delete ${c.customerName} from the customer directory?`)) deleteCustomer(c.id); }}
+                      style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"5px 12px",fontSize:12,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>
+                      🗑 Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {view==="team" && <TeamView config={config} onUpdate={updateConfig} onBack={goDash}/>}
 
         {/* ── DASHBOARD ── */}
@@ -721,6 +794,7 @@ function App() {
                   <button onClick={()=>setFilter("awaiting_supervisor")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_supervisor"?"#92400e":"#fef3c7",color:filter==="awaiting_supervisor"?"white":"#92400e"}}>Review Queue ({countOf("awaiting_supervisor")})</button>
                   <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
+                  <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
                 {(role==="supervisor"||role==="accounting") && countOf("closed")>0 && (
@@ -798,6 +872,21 @@ function App() {
               <HR/>
               <div style={{padding:"22px 24px"}}>
                 <SecHead>Customer Information</SecHead>
+                {/* Customer picker */}
+                {customers.length>0 && (
+                  <div style={{marginBottom:16}}>
+                    <Lbl>Select Existing Customer (auto-fills fields below)</Lbl>
+                    <select style={{...iSt,border:"2px solid #f47c00"}} value=""
+                      onChange={e=>{
+                        const c=customers.find(x=>x.id===e.target.value);
+                        if(c){ setF("customerName",c.customerName); setF("customerPhone",c.customerPhone); setF("customerEmail",c.customerEmail); setF("customerAddress",c.customerAddress); }
+                      }}>
+                      <option value="">— Pick a customer to auto-fill —</option>
+                      {customers.map(c=><option key={c.id} value={c.id}>{c.customerName}{c.customerPhone?` · ${c.customerPhone}`:""}</option>)}
+                    </select>
+                    <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Or fill in manually below to add a new customer.</div>
+                  </div>
+                )}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
                   <Inp label="Customer Name / Company" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
                   <Inp label="Phone Number" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
