@@ -957,8 +957,8 @@ function App() {
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
                   <Inp label="Customer Name / Company" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
                   <Inp label="Phone Number" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
-                  <Inp label="Email Address" value={form.customerEmail||""} placeholder="email@example.com" onChange={e=>setF("customerEmail",e.target.value)}/>
                 </div>
+                <Inp label="Email Address" value={form.customerEmail||""} placeholder="email@example.com" onChange={e=>setF("customerEmail",e.target.value)}/>
                 <Inp label="Billing Address" value={form.customerAddress||""} placeholder="123 Main St, City, State, ZIP" onChange={e=>setF("customerAddress",e.target.value)}/>
                 <Inp label="Job Site (if different)" value={form.jobLocation||""} placeholder="Leave blank if same" onChange={e=>setF("jobLocation",e.target.value)}/>
               </div>
