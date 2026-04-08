@@ -103,7 +103,7 @@ const calcTotals = (o={}) => {
     ? laborLines2.reduce((s,l)=>s+(parseFloat(l.hours)||0)*(parseFloat(l.rate)||0),0)
     : (parseFloat(laborHours2)||0)*(parseFloat(laborRate2)||0);
   const lab  = lab1+lab2;
-  const tax  = mat*0.08;
+  const tax  = o.applyTax!==false ? mat*0.08 : 0;
   return { mat, lab1, lab2, lab, tax, sub:mat+lab, total:mat+lab+tax };
 };
 
@@ -113,6 +113,7 @@ const blankOrder = () => ({
   createdDate:todayISO(), scheduledDate:todayISO(), createdBy:"", customerName:"",
   customerPhone:"", customerEmail:"", customerAddress:"", jobLocation:"",
   description:"", assignedTech:"", tech2Name:"", workPerformed:"", materials:[],
+  applyTax:true,
   laborLines1:[{id:1,description:"",hours:"",rate:"120"}],
   laborLines2:[],
   dispatchedTo:"", dispatchedAt:"", dispatchNotes:"",
@@ -146,12 +147,16 @@ const HR = () => <div style={{borderBottom:"1px solid #f3f4f6"}}/>;
 const Spinner = () => <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:40,color:"#9ca3af",fontSize:14}}>Loading…</div>;
 const Err = ({ msg }) => msg ? <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#dc2626",marginBottom:14}}>{msg}</div> : null;
 
-const TotalsBox = ({ t }) => (
+const TotalsBox = ({ t, applyTax=true }) => (
   <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:10,padding:"14px 18px",maxWidth:320,marginLeft:"auto"}}>
     <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",marginBottom:5}}><span>Materials</span><span>{fmt$(t.mat)}</span></div>
     <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",marginBottom:5}}><span>Labor</span><span>{fmt$(t.lab)}</span></div>
     <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",borderTop:"1px solid #e5e7eb",paddingTop:6,marginBottom:5}}><span>Subtotal</span><span>{fmt$(t.sub)}</span></div>
-    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#6b7280",marginBottom:5}}><span>Tax (8% materials only)</span><span>{fmt$(t.tax)}</span></div>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5,
+      color:applyTax?"#6b7280":"#9ca3af",fontStyle:applyTax?"normal":"italic"}}>
+      <span>{applyTax?"Tax (8% on materials)":"No Sales Tax"}</span>
+      <span>{applyTax?fmt$(t.tax):"$0.00"}</span>
+    </div>
     <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:900,color:"#0f2640",borderTop:"2px solid #0f2640",paddingTop:8}}><span>TOTAL</span><span>{fmt$(t.total)}</span></div>
   </div>
 );
@@ -247,7 +252,7 @@ const LaborPanel = ({ data, onChange }) => {
       <Inp label="Tech 2 Name" value={data.tech2Name||""} placeholder="Full name" onChange={e=>set("tech2Name",e.target.value)}/>
       <LaborLines lines={lines2} defaultRate="80" onChange={v=>set("laborLines2",v)}/>
     </div>
-    <TotalsBox t={t}/>
+    <TotalsBox t={t} applyTax={data.applyTax!==false}/>
   </>);
 };
 
@@ -972,6 +977,10 @@ function App() {
               <div style={{padding:"22px 24px"}}>
                 <SecHead>Materials & Parts</SecHead>
                 <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)}/>
+                <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginTop:8,padding:"10px 14px",background:form.applyTax!==false?"#f0fdf4":"#fef2f2",border:`1px solid ${form.applyTax!==false?"#86efac":"#fecaca"}`,borderRadius:8,fontSize:14,color:form.applyTax!==false?"#166534":"#dc2626",fontWeight:600}}>
+                  <input type="checkbox" checked={form.applyTax!==false} onChange={e=>setF("applyTax",e.target.checked)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
+                  {form.applyTax!==false ? "✓ Sales Tax (8%) applied to materials" : "✗ No sales tax on this job"}
+                </label>
               </div>
               <HR/>
               <div style={{padding:"22px 24px"}}>
@@ -1123,7 +1132,7 @@ function App() {
                       </table>
                     </div>
                   ):<p style={{fontSize:13,color:"#9ca3af",marginBottom:12}}>No materials logged.</p>}
-                  <TotalsBox t={t}/>
+                  <TotalsBox t={t} applyTax={sel.applyTax!==false}/>
                 </div>
 
                 {(sel.techSigned||sel.supervisorSigned||sel.accountingClosedBy) && <>
@@ -1154,7 +1163,7 @@ function App() {
                   <div style={{padding:"20px 24px",background:"#f5f3ff",borderTop:"3px solid #8b5cf6"}}>
                     <SecHead>Process & Close Job</SecHead>
                     <div style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#5b21b6",fontWeight:600}}>
-                      💰 Total: {fmt$(t.total)} &nbsp;·&nbsp; Materials tax (8%): {fmt$(t.tax)} &nbsp;·&nbsp; Labor (untaxed): {fmt$(t.lab)}
+                      💰 Total: {fmt$(t.total)} &nbsp;·&nbsp; {sel.applyTax!==false?`Materials tax (8%): ${fmt$(t.tax)}`:"No sales tax"} &nbsp;·&nbsp; Labor (untaxed): {fmt$(t.lab)}
                     </div>
                     <Txt label="Accounting Notes" value={act.notes} rows={2} placeholder="Invoice #, payment received…" onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
                     <div style={{marginBottom:14}}>
