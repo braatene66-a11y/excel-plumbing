@@ -1074,13 +1074,23 @@ function App() {
                               ✓ Submit to Supervisor
                             </Btn>
                           )}
-                          {isSupervisorDoingOwnJob && (
-                            <Btn variant="success" style={{fontSize:15,padding:"12px 28px"}} disabled={!act.checked||!act.name}
-                              onClick={()=>patch(sel.id,{status:"awaiting_accounting",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp(),supervisorSigned:true,supervisorSignedBy:act.name,supervisorSignedAt:nowStamp(),supervisorNotes:"Supervisor completed and approved own job."})}>
-                              ✓ Log Work & Approve — Send to Accounting
+                          {isSupervisorDoingOwnJob && (<>
+                            <Btn variant="outline" style={{fontSize:14,padding:"11px 20px"}} disabled={!act.checked||!act.name}
+                              onClick={()=>patch(sel.id,{status:"awaiting_supervisor",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp()})}>
+                              ⏳ Save for Supervisor Review
                             </Btn>
-                          )}
+                            <Btn variant="success" style={{fontSize:14,padding:"11px 20px"}} disabled={!act.checked||!act.name}
+                              onClick={()=>patch(sel.id,{status:"awaiting_accounting",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp(),supervisorSigned:true,supervisorSignedBy:act.name,supervisorSignedAt:nowStamp(),supervisorNotes:"Supervisor completed and approved own job."})}>
+                              ✓ Approve & Send to Accounting
+                            </Btn>
+                          </>)}
                         </div>
+                        {isSupervisorDoingOwnJob && act.checked && act.name && (
+                          <div style={{fontSize:12,color:"#6b7280",marginTop:10,lineHeight:1.5}}>
+                            <strong>Save for Supervisor Review</strong> — puts it in the queue for Eric or Ryan to double-check before it goes to accounting.<br/>
+                            <strong>Approve & Send to Accounting</strong> — you're signing off yourself and sending it straight to Ginger.
+                          </div>
+                        )}
                         {(!act.notes||!act.name) && <div style={{fontSize:12,color:"#9ca3af",marginTop:10}}>Fill in Work Performed and your name to enable submit.</div>}
                       </div>
                     )}
