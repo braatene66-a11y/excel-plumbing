@@ -584,6 +584,259 @@ const TeamView = ({ config, onUpdate, onBack }) => {
 };
 
 // ═══════════════════════════════════════════════════════
+// TIME CARD SYSTEM
+// ═══════════════════════════════════════════════════════
+
+const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}) : "—";
+const fmtDur  = ms => {
+  if(!ms||ms<0) return "0h 0m";
+  const h = Math.floor(ms/3600000);
+  const m = Math.floor((ms%3600000)/60000);
+  return `${h}h ${m}m`;
+};
+const fmtDurDecimal = ms => {
+  if(!ms||ms<0) return "0.00";
+  return (ms/3600000).toFixed(2);
+};
+
+// Tech clock-in/out panel — shown on tech dashboard
+const ClockPanel = ({ user, onUpdate }) => {
+  const [entry, setEntry]   = useState(null); // current open entry
+  const [loading, setLoading] = useState(true);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Load any open clock entry for this user
+  useEffect(()=>{
+    (async()=>{
+      try {
+        const entries = await fsList("timeEntries");
+        const open = entries.find(e=>e.userName===user.name&&!e.clockOut);
+        setEntry(open||null);
+      } catch{}
+      setLoading(false);
+    })();
+  },[user.name]);
+
+  // Live elapsed timer
+  useEffect(()=>{
+    if(!entry?.clockIn) return;
+    const t = setInterval(()=>setElapsed(Date.now()-entry.clockIn),10000);
+    setElapsed(Date.now()-entry.clockIn);
+    return ()=>clearInterval(t);
+  },[entry]);
+
+  const clockIn = async () => {
+    setLoading(true);
+    try {
+      const now = Date.now();
+      const saved = await fsAdd("timeEntries",{
+        userName: user.name,
+        uid: user.uid,
+        clockIn: now,
+        clockInStr: new Date(now).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}),
+        clockOut: null,
+        clockOutStr: null,
+        duration: null,
+        date: todayISO(),
+      });
+      setEntry(saved);
+      if(onUpdate) onUpdate();
+    } catch(e){ alert("Clock in error: "+e.message); }
+    setLoading(false);
+  };
+
+  const clockOut = async () => {
+    if(!entry) return;
+    setLoading(true);
+    try {
+      const now = Date.now();
+      const dur = now - entry.clockIn;
+      await fsSet("timeEntries", entry.id, {
+        ...entry,
+        clockOut: now,
+        clockOutStr: new Date(now).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}),
+        duration: dur,
+        durationStr: fmtDur(dur),
+        durationDecimal: fmtDurDecimal(dur),
+      });
+      setEntry(null);
+      if(onUpdate) onUpdate();
+    } catch(e){ alert("Clock out error: "+e.message); }
+    setLoading(false);
+  };
+
+  if(loading) return <div style={{background:"white",borderRadius:12,padding:"16px 20px",marginBottom:16,textAlign:"center",color:"#9ca3af",fontSize:13}}>Loading time card…</div>;
+
+  const isClockedIn = !!entry;
+  return (
+    <div style={{background:isClockedIn?"linear-gradient(135deg,#ecfdf5,#d1fae5)":"linear-gradient(135deg,#f9fafb,#f3f4f6)",
+      border:`2px solid ${isClockedIn?"#34d399":"#e5e7eb"}`,borderRadius:12,padding:"16px 20px",marginBottom:16,
+      display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+      <div style={{display:"flex",alignItems:"center",gap:14}}>
+        <div style={{width:48,height:48,borderRadius:"50%",background:isClockedIn?"#059669":"#9ca3af",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+          {isClockedIn?"🟢":"⚪"}
+        </div>
+        <div>
+          <div style={{fontSize:15,fontWeight:800,color:isClockedIn?"#065f46":"#374151"}}>
+            {isClockedIn?"Clocked In":"Not Clocked In"}
+          </div>
+          {isClockedIn && <>
+            <div style={{fontSize:12,color:"#059669",marginTop:2}}>Since {fmtTime(entry.clockIn)}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#065f46",marginTop:2}}>⏱ {fmtDur(elapsed)} elapsed</div>
+          </>}
+          {!isClockedIn && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Tap Clock In to start your shift</div>}
+        </div>
+      </div>
+      <Btn variant={isClockedIn?"red":"success"} style={{fontSize:15,padding:"11px 28px"}}
+        onClick={isClockedIn?clockOut:clockIn} disabled={loading}>
+        {isClockedIn?"🔴 Clock Out":"🟢 Clock In"}
+      </Btn>
+    </div>
+  );
+};
+
+// Full time card report for supervisors/accounting
+const TimeCardReport = ({ onBack }) => {
+  const [entries, setEntries]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [weekStart, setWeekStart] = useState(getMondayOf(todayISO()));
+  const [filterName, setFilterName] = useState("all");
+
+  useEffect(()=>{ loadEntries(); },[]);
+  const loadEntries = async () => {
+    setLoading(true);
+    try { setEntries(await fsList("timeEntries")); } catch{}
+    setLoading(false);
+  };
+
+  const weekEnd = addDays(weekStart,6);
+  const inWeek  = entries.filter(e=>e.date>=weekStart&&e.date<=weekEnd);
+  const names   = [...new Set(entries.map(e=>e.userName).filter(Boolean))].sort();
+
+  const filtered = (filterName==="all"?inWeek:inWeek.filter(e=>e.userName===filterName))
+    .sort((a,b)=>(b.clockIn||0)-(a.clockIn||0));
+
+  // Group by employee for summary
+  const summary = {};
+  inWeek.forEach(e=>{
+    if(!e.userName) return;
+    if(!summary[e.userName]) summary[e.userName]={hours:0,days:0};
+    if(e.duration) { summary[e.userName].hours+=e.duration; summary[e.userName].days++; }
+  });
+
+  const deleteEntry = async (id) => {
+    if(!window.confirm("Delete this time entry?")) return;
+    await fsDel("timeEntries",id);
+    setEntries(p=>p.filter(e=>e.id!==id));
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>🕐 Time Cards</span>
+        <Btn variant="outline" small onClick={loadEntries}>⟳ Refresh</Btn>
+      </div>
+
+      {/* Week nav */}
+      <div style={{background:"white",borderRadius:12,padding:"14px 20px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Week of</div>
+          <div style={{fontSize:18,fontWeight:900,color:"#0f2640"}}>{fmtWeek(weekStart)}</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <Btn variant="outline" small onClick={()=>setWeekStart(addDays(weekStart,-7))}>← Prev</Btn>
+          <Btn variant="outline" small onClick={()=>setWeekStart(getMondayOf(todayISO()))}>This Week</Btn>
+          <Btn variant="outline" small onClick={()=>setWeekStart(addDays(weekStart,7))}>Next →</Btn>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}}>
+        {Object.entries(summary).map(([name,s])=>(
+          <div key={name} style={{background:"white",borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#0f2640,#1a3a5c)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,flexShrink:0}}>
+                {name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+              </div>
+              <span style={{fontSize:13,fontWeight:700,color:"#0f2640"}}>{name.split(" ")[0]}</span>
+            </div>
+            <div style={{fontSize:20,fontWeight:900,color:"#059669"}}>{fmtDurDecimal(s.hours)} hrs</div>
+            <div style={{fontSize:11,color:"#9ca3af"}}>{s.days} shift{s.days!==1?"s":""} this week</div>
+          </div>
+        ))}
+        {Object.keys(summary).length===0 && (
+          <div style={{background:"white",borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)",gridColumn:"1/-1",textAlign:"center",color:"#9ca3af",fontSize:13}}>No time entries this week</div>
+        )}
+      </div>
+
+      {/* Filter by employee */}
+      <div style={{marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#6b7280"}}>Filter:</span>
+        {["all",...names].map(n=>(
+          <button key={n} onClick={()=>setFilterName(n)} style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",
+            fontFamily:"inherit",fontSize:12,fontWeight:700,
+            background:filterName===n?"#0f2640":"#e5e7eb",color:filterName===n?"white":"#374151"}}>
+            {n==="all"?"All Employees":n}
+          </button>
+        ))}
+      </div>
+
+      {/* Entries table */}
+      {loading ? <Spinner/> : (
+        <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",overflow:"hidden"}}>
+          {filtered.length===0 ? (
+            <div style={{padding:"40px 20px",textAlign:"center",color:"#9ca3af"}}>
+              <div style={{fontSize:36,marginBottom:8}}>🕐</div>
+              <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:4}}>No entries found</div>
+              <div style={{fontSize:13}}>No time cards for this week{filterName!=="all"?` for ${filterName}`:""}</div>
+            </div>
+          ):(
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:550}}>
+                <thead>
+                  <tr style={{background:"#f9fafb"}}>
+                    {["Employee","Date","Clock In","Clock Out","Duration","Hours",""].map(h=>(
+                      <th key={h} style={{padding:"10px 14px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(e=>(
+                    <tr key={e.id} style={{borderTop:"1px solid #f3f4f6"}}>
+                      <td style={{padding:"10px 14px"}}>
+                        <div style={{fontWeight:700,color:"#0f2640"}}>{e.userName}</div>
+                      </td>
+                      <td style={{padding:"10px 14px",color:"#374151"}}>{fmtDate(e.date)}</td>
+                      <td style={{padding:"10px 14px",color:"#374151"}}>{fmtTime(e.clockIn)}</td>
+                      <td style={{padding:"10px 14px"}}>
+                        {e.clockOut
+                          ? <span style={{color:"#374151"}}>{fmtTime(e.clockOut)}</span>
+                          : <span style={{color:"#059669",fontWeight:700,fontSize:11,background:"#ecfdf5",padding:"2px 8px",borderRadius:20}}>🟢 Still clocked in</span>
+                        }
+                      </td>
+                      <td style={{padding:"10px 14px",color:"#374151"}}>{e.durationStr||"In progress"}</td>
+                      <td style={{padding:"10px 14px",fontWeight:700,color:"#059669"}}>{e.durationDecimal?`${e.durationDecimal} hrs`:"—"}</td>
+                      <td style={{padding:"10px 14px"}}>
+                        <button onClick={()=>deleteEntry(e.id)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{marginTop:12,fontSize:12,color:"#9ca3af"}}>
+        💡 Time entries are created when employees clock in from their login. Supervisors can delete incorrect entries.
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════
 // SUPERVISOR PANEL (editable invoice)
 // ═══════════════════════════════════════════════════════
 const SupervisorPanel = ({ sel, act, setAct, onApprove, supervisors=[] }) => {
@@ -790,6 +1043,9 @@ function App() {
         {/* ── REPORT ── */}
         {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
 
+        {/* ── TIME CARDS ── */}
+        {view==="timecards" && <TimeCardReport onBack={goDash}/>}
+
         {/* ── CUSTOMER DIRECTORY ── */}
         {view==="customers" && (
           <div>
@@ -837,10 +1093,13 @@ function App() {
           <div>
             {/* Tech welcome banner */}
             {role==="tech" && (
-              <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:12,color:"white"}}>
-                <div style={{width:40,height:40,borderRadius:"50%",background:"#f47c00",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,flexShrink:0}}>{user?.name?.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
-                <div><div style={{fontSize:15,fontWeight:800}}>Hi, {user?.name?.split(" ")[0]}! 👋</div><div style={{fontSize:12,color:"#7eb8e0",marginTop:2}}>Showing jobs assigned to you · {visible.length} active</div></div>
-                <Btn variant="outline" small onClick={loadData} style={{marginLeft:"auto",color:"white",border:"1px solid rgba(255,255,255,0.3)",background:"transparent"}}>⟳ Refresh</Btn>
+              <div>
+                <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",borderRadius:12,padding:"14px 20px",marginBottom:12,display:"flex",alignItems:"center",gap:12,color:"white"}}>
+                  <div style={{width:40,height:40,borderRadius:"50%",background:"#f47c00",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,flexShrink:0}}>{user?.name?.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
+                  <div><div style={{fontSize:15,fontWeight:800}}>Hi, {user?.name?.split(" ")[0]}! 👋</div><div style={{fontSize:12,color:"#7eb8e0",marginTop:2}}>Showing jobs assigned to you · {visible.length} active</div></div>
+                  <Btn variant="outline" small onClick={loadData} style={{marginLeft:"auto",color:"white",border:"1px solid rgba(255,255,255,0.3)",background:"transparent"}}>⟳ Refresh</Btn>
+                </div>
+                <ClockPanel user={user}/>
               </div>
             )}
 
@@ -865,8 +1124,10 @@ function App() {
                   <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
+                  <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
+                {role==="accounting" && <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>}
                 {(role==="supervisor"||role==="accounting") && countOf("closed")>0 && (
                   <button onClick={()=>{ if(window.confirm(`Delete all ${countOf("closed")} closed work orders?`)) deleteAllClosed(); }} style={{padding:"5px 14px",borderRadius:20,border:"1px solid #fca5a5",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"white",color:"#dc2626"}}>🗑 Delete All Closed ({countOf("closed")})</button>
                 )}
