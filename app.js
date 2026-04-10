@@ -697,11 +697,13 @@ const ClockPanel = ({ user, onUpdate }) => {
 };
 
 // Full time card report for supervisors/accounting
-const TimeCardReport = ({ onBack }) => {
+const TimeCardReport = ({ onBack, canEdit=false }) => {
   const [entries, setEntries]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [weekStart, setWeekStart] = useState(getMondayOf(todayISO()));
   const [filterName, setFilterName] = useState("all");
+  const [editId, setEditId]     = useState(null); // id of row being edited
+  const [editVals, setEditVals] = useState({});   // { clockInTime, clockOutTime }
 
   useEffect(()=>{ loadEntries(); },[]);
   const loadEntries = async () => {
@@ -729,6 +731,45 @@ const TimeCardReport = ({ onBack }) => {
     if(!window.confirm("Delete this time entry?")) return;
     await fsDel("timeEntries",id);
     setEntries(p=>p.filter(e=>e.id!==id));
+  };
+
+  const startEdit = (e) => {
+    // Convert timestamps to HH:MM string for time inputs
+    const toTimeStr = ts => {
+      if(!ts) return "";
+      const d = new Date(ts);
+      return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    };
+    setEditId(e.id);
+    setEditVals({ clockInTime: toTimeStr(e.clockIn), clockOutTime: toTimeStr(e.clockOut), date: e.date });
+  };
+
+  const saveEdit = async (e) => {
+    // Reconstruct timestamps from date + time strings
+    const toTs = (dateStr, timeStr) => {
+      if(!timeStr) return null;
+      const [h,m] = timeStr.split(":").map(Number);
+      const d = new Date(dateStr+"T12:00:00");
+      d.setHours(h,m,0,0);
+      return d.getTime();
+    };
+    const newIn  = toTs(editVals.date, editVals.clockInTime);
+    const newOut = editVals.clockOutTime ? toTs(editVals.date, editVals.clockOutTime) : null;
+    const dur    = newIn && newOut ? newOut - newIn : null;
+    const updated = {
+      ...e,
+      clockIn:  newIn,
+      clockInStr: newIn ? new Date(newIn).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}) : null,
+      clockOut: newOut,
+      clockOutStr: newOut ? new Date(newOut).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}) : null,
+      duration: dur,
+      durationStr: dur ? fmtDur(dur) : null,
+      durationDecimal: dur ? fmtDurDecimal(dur) : null,
+      date: editVals.date,
+    };
+    await fsSet("timeEntries", e.id, updated);
+    setEntries(p=>p.map(x=>x.id===e.id?{...updated,id:e.id}:x));
+    setEditId(null);
   };
 
   return (
@@ -794,35 +835,69 @@ const TimeCardReport = ({ onBack }) => {
             </div>
           ):(
             <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:550}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:canEdit?650:550}}>
                 <thead>
                   <tr style={{background:"#f9fafb"}}>
-                    {["Employee","Date","Clock In","Clock Out","Duration","Hours",""].map(h=>(
+                    {["Employee","Date","Clock In","Clock Out","Duration","Hours",...(canEdit?["Actions"]:[])].map(h=>(
                       <th key={h} style={{padding:"10px 14px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(e=>(
-                    <tr key={e.id} style={{borderTop:"1px solid #f3f4f6"}}>
-                      <td style={{padding:"10px 14px"}}>
-                        <div style={{fontWeight:700,color:"#0f2640"}}>{e.userName}</div>
-                      </td>
-                      <td style={{padding:"10px 14px",color:"#374151"}}>{fmtDate(e.date)}</td>
-                      <td style={{padding:"10px 14px",color:"#374151"}}>{fmtTime(e.clockIn)}</td>
-                      <td style={{padding:"10px 14px"}}>
-                        {e.clockOut
-                          ? <span style={{color:"#374151"}}>{fmtTime(e.clockOut)}</span>
-                          : <span style={{color:"#059669",fontWeight:700,fontSize:11,background:"#ecfdf5",padding:"2px 8px",borderRadius:20}}>🟢 Still clocked in</span>
-                        }
-                      </td>
-                      <td style={{padding:"10px 14px",color:"#374151"}}>{e.durationStr||"In progress"}</td>
-                      <td style={{padding:"10px 14px",fontWeight:700,color:"#059669"}}>{e.durationDecimal?`${e.durationDecimal} hrs`:"—"}</td>
-                      <td style={{padding:"10px 14px"}}>
-                        <button onClick={()=>deleteEntry(e.id)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filtered.map(e=>{
+                    const isEditing = canEdit && editId===e.id;
+                    return (
+                      <tr key={e.id} style={{borderTop:"1px solid #f3f4f6",background:isEditing?"#fffbeb":"white"}}>
+                        <td style={{padding:"10px 14px"}}>
+                          <div style={{fontWeight:700,color:"#0f2640"}}>{e.userName}</div>
+                        </td>
+                        <td style={{padding:"8px 14px"}}>
+                          {isEditing
+                            ? <input type="date" value={editVals.date} onChange={ev=>setEditVals(p=>({...p,date:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:130}}/>
+                            : <span style={{color:"#374151"}}>{fmtDate(e.date)}</span>
+                          }
+                        </td>
+                        <td style={{padding:"8px 14px"}}>
+                          {isEditing
+                            ? <input type="time" value={editVals.clockInTime} onChange={ev=>setEditVals(p=>({...p,clockInTime:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:110}}/>
+                            : <span style={{color:"#374151"}}>{fmtTime(e.clockIn)}</span>
+                          }
+                        </td>
+                        <td style={{padding:"8px 14px"}}>
+                          {isEditing
+                            ? <input type="time" value={editVals.clockOutTime} onChange={ev=>setEditVals(p=>({...p,clockOutTime:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:110}}/>
+                            : e.clockOut
+                              ? <span style={{color:"#374151"}}>{fmtTime(e.clockOut)}</span>
+                              : <span style={{color:"#059669",fontWeight:700,fontSize:11,background:"#ecfdf5",padding:"2px 8px",borderRadius:20}}>🟢 Clocked in</span>
+                          }
+                        </td>
+                        <td style={{padding:"10px 14px",color:"#374151"}}>
+                          {isEditing
+                            ? <span style={{fontSize:11,color:"#9ca3af"}}>recalculates on save</span>
+                            : e.durationStr||"In progress"
+                          }
+                        </td>
+                        <td style={{padding:"10px 14px",fontWeight:700,color:"#059669"}}>
+                          {isEditing ? "—" : (e.durationDecimal?`${e.durationDecimal} hrs`:"—")}
+                        </td>
+                        {canEdit && (
+                          <td style={{padding:"8px 14px"}}>
+                            {isEditing ? (
+                              <div style={{display:"flex",gap:6}}>
+                                <button onClick={()=>saveEdit(e)} style={{background:"#059669",border:"none",borderRadius:6,color:"white",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✓ Save</button>
+                                <button onClick={()=>setEditId(null)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:6,color:"#6b7280",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Cancel</button>
+                              </div>
+                            ):(
+                              <div style={{display:"flex",gap:6}}>
+                                <button onClick={()=>startEdit(e)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:6,color:"#1e40af",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✎ Edit</button>
+                                <button onClick={()=>deleteEntry(e.id)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -830,7 +905,10 @@ const TimeCardReport = ({ onBack }) => {
         </div>
       )}
       <div style={{marginTop:12,fontSize:12,color:"#9ca3af"}}>
-        💡 Time entries are created when employees clock in from their login. Supervisors can delete incorrect entries.
+        {canEdit
+          ? "💡 Click ✎ Edit on any row to correct clock in/out times or the date. Changes are saved immediately."
+          : "💡 Time entries are created when you clock in. Contact your supervisor to correct any mistakes."
+        }
       </div>
     </div>
   );
@@ -1044,7 +1122,7 @@ function App() {
         {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
 
         {/* ── TIME CARDS ── */}
-        {view==="timecards" && <TimeCardReport onBack={goDash}/>}
+        {view==="timecards" && <TimeCardReport onBack={goDash} canEdit={role==="supervisor"||role==="accounting"}/>}
 
         {/* ── CUSTOMER DIRECTORY ── */}
         {view==="customers" && (
