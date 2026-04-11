@@ -989,6 +989,80 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
 // ═══════════════════════════════════════════════════════
 // SUPERVISOR PANEL (editable invoice)
 // ═══════════════════════════════════════════════════════
+// Always-editable materials table for supervisor — every row is live inputs, no toggle needed
+const SupervisorMatTable = ({ materials=[], onUpdate }) => {
+  const [newRow, setNewRow] = useState({description:"",qty:"",unitPrice:""});
+
+  const setCell = (id, k, v) => onUpdate(materials.map(m=>m.id===id?{...m,[k]:v}:m));
+  const removeRow = id => onUpdate(materials.filter(m=>m.id!==id));
+  const addRow = () => {
+    if(!newRow.description) return;
+    onUpdate([...materials,{...newRow,id:Date.now()}]);
+    setNewRow({description:"",qty:"",unitPrice:""});
+  };
+
+  const inpSt = {...iSt, padding:"6px 8px", fontSize:13};
+
+  return (
+    <>
+      <div style={{overflowX:"auto",marginBottom:14}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:460}}>
+          <thead>
+            <tr style={{background:"#fef3c7"}}>
+              {["Description","Qty","Unit Price","Line Total",""].map(h=>(
+                <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#92400e",fontSize:10,textTransform:"uppercase"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {materials.length===0 && (
+              <tr><td colSpan={5} style={{padding:"12px 10px",color:"#9ca3af",fontSize:13,textAlign:"center"}}>No materials — add a row below</td></tr>
+            )}
+            {materials.map(m=>{
+              const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0);
+              return (
+                <tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}>
+                  <td style={{padding:"5px 6px"}}>
+                    <input style={{...inpSt,minWidth:150}} value={m.description||""} placeholder="Description" onChange={e=>setCell(m.id,"description",e.target.value)}/>
+                  </td>
+                  <td style={{padding:"5px 6px"}}>
+                    <input type="number" style={{...inpSt,width:65}} value={m.qty||""} placeholder="0" onChange={e=>setCell(m.id,"qty",e.target.value)}/>
+                  </td>
+                  <td style={{padding:"5px 6px"}}>
+                    <input type="number" style={{...inpSt,width:85}} value={m.unitPrice||""} placeholder="0.00" onChange={e=>setCell(m.id,"unitPrice",e.target.value)}/>
+                  </td>
+                  <td style={{padding:"5px 10px",fontWeight:700,color:"#0f2640",whiteSpace:"nowrap"}}>{fmt$(lt)}</td>
+                  <td style={{padding:"5px 6px"}}>
+                    <button onClick={()=>removeRow(m.id)} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
+                  </td>
+                </tr>
+              );
+            })}
+            {/* New row inputs always visible at bottom */}
+            <tr style={{borderTop:"2px dashed #e5e7eb",background:"#fafafa"}}>
+              <td style={{padding:"5px 6px"}}>
+                <input style={{...inpSt,minWidth:150}} value={newRow.description} placeholder="+ New item description" onChange={e=>setNewRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRow()}/>
+              </td>
+              <td style={{padding:"5px 6px"}}>
+                <input type="number" style={{...inpSt,width:65}} value={newRow.qty} placeholder="1" onChange={e=>setNewRow(p=>({...p,qty:e.target.value}))}/>
+              </td>
+              <td style={{padding:"5px 6px"}}>
+                <input type="number" style={{...inpSt,width:85}} value={newRow.unitPrice} placeholder="0.00" onChange={e=>setNewRow(p=>({...p,unitPrice:e.target.value}))}/>
+              </td>
+              <td style={{padding:"5px 10px",color:"#9ca3af",fontSize:12}}>
+                {newRow.qty&&newRow.unitPrice?fmt$((parseFloat(newRow.qty)||0)*(parseFloat(newRow.unitPrice)||0)):"—"}
+              </td>
+              <td style={{padding:"5px 6px"}}>
+                <button onClick={addRow} disabled={!newRow.description} style={{background:newRow.description?"#f47c00":"#e5e7eb",border:"none",borderRadius:5,color:newRow.description?"white":"#9ca3af",cursor:newRow.description?"pointer":"default",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>+ Add</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+};
+
 const SupervisorPanel = ({ sel, act, setAct, onApprove, supervisors=[] }) => {
   const [draft, setDraft] = useState({...sel});
   return (
@@ -998,7 +1072,7 @@ const SupervisorPanel = ({ sel, act, setAct, onApprove, supervisors=[] }) => {
         ✏️ Adjust materials or labor below before approving.
       </div>
       <div style={{marginBottom:8,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Materials</div>
-      <MatTable materials={draft.materials||[]} onUpdate={m=>setDraft(p=>({...p,materials:m}))}/>
+      <SupervisorMatTable materials={draft.materials||[]} onUpdate={m=>setDraft(p=>({...p,materials:m}))}/>
       <div style={{borderBottom:"1px solid #e5e7eb",margin:"12px 0"}}/>
       <div style={{marginBottom:12,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Labor</div>
       <LaborPanel data={draft} onChange={updated=>setDraft(updated)}/>
