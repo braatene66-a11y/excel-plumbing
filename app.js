@@ -989,15 +989,37 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
 // ═══════════════════════════════════════════════════════
 // SUPERVISOR PANEL (editable invoice)
 // ═══════════════════════════════════════════════════════
-// Always-editable materials table for supervisor — every row is live inputs, no toggle needed
+// Always-editable materials table for supervisor — local state prevents re-render on every keystroke
 const SupervisorMatTable = ({ materials=[], onUpdate }) => {
+  const [rows, setRows]   = useState(()=>materials.map(m=>({...m})));
   const [newRow, setNewRow] = useState({description:"",qty:"",unitPrice:""});
 
-  const setCell = (id, k, v) => onUpdate(materials.map(m=>m.id===id?{...m,[k]:v}:m));
-  const removeRow = id => onUpdate(materials.filter(m=>m.id!==id));
+  // Keep rows in sync if parent passes completely new materials (e.g. on mount)
+  const prevLen = React.useRef(materials.length);
+  useEffect(()=>{
+    if(materials.length!==prevLen.current){
+      setRows(materials.map(m=>({...m})));
+      prevLen.current = materials.length;
+    }
+  },[materials]);
+
+  const setCell = (id, k, v) => {
+    const updated = rows.map(r=>r.id===id?{...r,[k]:v}:r);
+    setRows(updated);
+    onUpdate(updated);
+  };
+
+  const removeRow = id => {
+    const updated = rows.filter(r=>r.id!==id);
+    setRows(updated);
+    onUpdate(updated);
+  };
+
   const addRow = () => {
     if(!newRow.description) return;
-    onUpdate([...materials,{...newRow,id:Date.now()}]);
+    const updated = [...rows,{...newRow,id:Date.now()}];
+    setRows(updated);
+    onUpdate(updated);
     setNewRow({description:"",qty:"",unitPrice:""});
   };
 
@@ -1015,21 +1037,38 @@ const SupervisorMatTable = ({ materials=[], onUpdate }) => {
             </tr>
           </thead>
           <tbody>
-            {materials.length===0 && (
+            {rows.length===0 && (
               <tr><td colSpan={5} style={{padding:"12px 10px",color:"#9ca3af",fontSize:13,textAlign:"center"}}>No materials — add a row below</td></tr>
             )}
-            {materials.map(m=>{
+            {rows.map(m=>{
               const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0);
               return (
                 <tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}>
                   <td style={{padding:"5px 6px"}}>
-                    <input style={{...inpSt,minWidth:150}} value={m.description||""} placeholder="Description" onChange={e=>setCell(m.id,"description",e.target.value)}/>
+                    <input
+                      style={{...inpSt,minWidth:150}}
+                      value={m.description||""}
+                      placeholder="Description"
+                      onChange={e=>setCell(m.id,"description",e.target.value)}
+                    />
                   </td>
                   <td style={{padding:"5px 6px"}}>
-                    <input type="number" style={{...inpSt,width:65}} value={m.qty||""} placeholder="0" onChange={e=>setCell(m.id,"qty",e.target.value)}/>
+                    <input
+                      type="number"
+                      style={{...inpSt,width:65}}
+                      value={m.qty||""}
+                      placeholder="0"
+                      onChange={e=>setCell(m.id,"qty",e.target.value)}
+                    />
                   </td>
                   <td style={{padding:"5px 6px"}}>
-                    <input type="number" style={{...inpSt,width:85}} value={m.unitPrice||""} placeholder="0.00" onChange={e=>setCell(m.id,"unitPrice",e.target.value)}/>
+                    <input
+                      type="number"
+                      style={{...inpSt,width:85}}
+                      value={m.unitPrice||""}
+                      placeholder="0.00"
+                      onChange={e=>setCell(m.id,"unitPrice",e.target.value)}
+                    />
                   </td>
                   <td style={{padding:"5px 10px",fontWeight:700,color:"#0f2640",whiteSpace:"nowrap"}}>{fmt$(lt)}</td>
                   <td style={{padding:"5px 6px"}}>
@@ -1038,10 +1077,10 @@ const SupervisorMatTable = ({ materials=[], onUpdate }) => {
                 </tr>
               );
             })}
-            {/* New row inputs always visible at bottom */}
+            {/* Add new row — always visible at bottom */}
             <tr style={{borderTop:"2px dashed #e5e7eb",background:"#fafafa"}}>
               <td style={{padding:"5px 6px"}}>
-                <input style={{...inpSt,minWidth:150}} value={newRow.description} placeholder="+ New item description" onChange={e=>setNewRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRow()}/>
+                <input style={{...inpSt,minWidth:150}} value={newRow.description} placeholder="+ New item" onChange={e=>setNewRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRow()}/>
               </td>
               <td style={{padding:"5px 6px"}}>
                 <input type="number" style={{...inpSt,width:65}} value={newRow.qty} placeholder="1" onChange={e=>setNewRow(p=>({...p,qty:e.target.value}))}/>
@@ -1053,7 +1092,12 @@ const SupervisorMatTable = ({ materials=[], onUpdate }) => {
                 {newRow.qty&&newRow.unitPrice?fmt$((parseFloat(newRow.qty)||0)*(parseFloat(newRow.unitPrice)||0)):"—"}
               </td>
               <td style={{padding:"5px 6px"}}>
-                <button onClick={addRow} disabled={!newRow.description} style={{background:newRow.description?"#f47c00":"#e5e7eb",border:"none",borderRadius:5,color:newRow.description?"white":"#9ca3af",cursor:newRow.description?"pointer":"default",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>+ Add</button>
+                <button onClick={addRow} disabled={!newRow.description}
+                  style={{background:newRow.description?"#f47c00":"#e5e7eb",border:"none",borderRadius:5,
+                    color:newRow.description?"white":"#9ca3af",cursor:newRow.description?"pointer":"default",
+                    padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>
+                  + Add
+                </button>
               </td>
             </tr>
           </tbody>
