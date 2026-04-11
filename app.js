@@ -1090,6 +1090,7 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
   // (re-renders reset MatTable's pencil editId state)
   const materialsRef  = React.useRef([...(sel.materials||[])]);
   const laborRef      = React.useRef({...sel});
+  const [matTick, setMatTick] = useState(0); // increments to force display refresh after save
   const [notes,   setNotes]   = useState("");
   const [supName, setSupName] = useState("");
   const [checked, setChecked] = useState(false);
@@ -1112,7 +1113,7 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
       <div style={{marginBottom:8,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Materials</div>
       <MatTable
         materials={materialsRef.current}
-        onUpdate={m=>{ materialsRef.current=m; }}
+        onUpdate={m=>{ materialsRef.current=m; setMatTick(t=>t+1); }}
       />
 
       <div style={{borderBottom:"1px solid #e5e7eb",margin:"12px 0"}}/>
