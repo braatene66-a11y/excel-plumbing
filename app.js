@@ -1086,16 +1086,40 @@ const SupervisorMatTable = ({ materials=[], onUpdate }) => {
 };
 
 const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
+  // Store editable data in refs so changes never cause re-renders
+  // (re-renders reset MatTable's pencil editId state)
+  const materialsRef  = React.useRef([...(sel.materials||[])]);
+  const laborRef      = React.useRef({...sel});
   const [notes,   setNotes]   = useState("");
   const [supName, setSupName] = useState("");
   const [checked, setChecked] = useState(false);
+
+  const handleApprove = () => {
+    onApprove(
+      {...laborRef.current, materials: materialsRef.current},
+      notes,
+      supName
+    );
+  };
+
   return (
     <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #f59e0b"}}>
-      <SecHead>Supervisor Approval</SecHead>
-      <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#92400e"}}>
-        <div style={{fontWeight:700,marginBottom:4}}>📝 Need to correct the invoice?</div>
-        Use the <strong>✎ Edit Invoice</strong> button at the top right to fix materials, quantities, prices, and labor — then come back here to approve.
+      <SecHead>Supervisor Review & Approval</SecHead>
+      <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#92400e",fontWeight:600}}>
+        ✏️ Use the pencil (✎) on any material row to edit it. Add or remove rows below.
       </div>
+
+      <div style={{marginBottom:8,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Materials</div>
+      <MatTable
+        materials={materialsRef.current}
+        onUpdate={m=>{ materialsRef.current=m; }}
+      />
+
+      <div style={{borderBottom:"1px solid #e5e7eb",margin:"12px 0"}}/>
+      <div style={{marginBottom:12,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Labor</div>
+      <LaborPanel data={laborRef.current} onChange={updated=>{ laborRef.current=updated; }}/>
+
+      <div style={{borderBottom:"1px solid #e5e7eb",margin:"16px 0"}}/>
       <Txt label="Supervisor Notes (optional)" value={notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setNotes(e.target.value)}/>
       <div style={{marginBottom:14}}>
         <Lbl>Signing Supervisor</Lbl>
@@ -1108,7 +1132,7 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
         <input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)} style={{width:16,height:16}}/>
         I have reviewed this invoice and approve it for accounting.
       </label>
-      <Btn variant="success" disabled={!checked||!supName} onClick={()=>onApprove(sel, notes, supName)}>
+      <Btn variant="success" disabled={!checked||!supName} onClick={handleApprove}>
         ✓ Approve & Send to Accounting
       </Btn>
     </div>
@@ -1665,7 +1689,7 @@ function App() {
 
                 {/* Supervisor actions */}
                 {role==="supervisor" && sel.status==="awaiting_supervisor" && (
-                  <SupervisorPanel sel={sel} supervisors={config.supervisors||[]}
+                  <SupervisorPanel key={sel.id+"-sup"} sel={sel} supervisors={config.supervisors||[]}
                     onApprove={(draft, notes, supName)=>patch(sel.id,{...draft,status:"awaiting_accounting",supervisorNotes:notes,supervisorSigned:true,supervisorSignedBy:supName,supervisorSignedAt:nowStamp()})}/>
                 )}
                 {role==="supervisor" && sel.status==="awaiting_accounting" && (
