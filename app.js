@@ -1086,41 +1086,13 @@ const SupervisorMatTable = ({ materials=[], onUpdate }) => {
 };
 
 const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
-  // Store editable data in refs so changes never cause re-renders
-  // (re-renders reset MatTable's pencil editId state)
-  const materialsRef  = React.useRef([...(sel.materials||[])]);
-  const laborRef      = React.useRef({...sel});
-  const [matTick, setMatTick] = useState(0); // increments to force display refresh after save
   const [notes,   setNotes]   = useState("");
   const [supName, setSupName] = useState("");
   const [checked, setChecked] = useState(false);
 
-  const handleApprove = () => {
-    onApprove(
-      {...laborRef.current, materials: materialsRef.current},
-      notes,
-      supName
-    );
-  };
-
   return (
     <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #f59e0b"}}>
       <SecHead>Supervisor Review & Approval</SecHead>
-      <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#92400e",fontWeight:600}}>
-        ✏️ Use the pencil (✎) on any material row to edit it. Add or remove rows below.
-      </div>
-
-      <div style={{marginBottom:8,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Materials</div>
-      <MatTable
-        materials={materialsRef.current}
-        onUpdate={m=>{ materialsRef.current=m; setMatTick(t=>t+1); }}
-      />
-
-      <div style={{borderBottom:"1px solid #e5e7eb",margin:"12px 0"}}/>
-      <div style={{marginBottom:12,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Labor</div>
-      <LaborPanel data={laborRef.current} onChange={updated=>{ laborRef.current=updated; }}/>
-
-      <div style={{borderBottom:"1px solid #e5e7eb",margin:"16px 0"}}/>
       <Txt label="Supervisor Notes (optional)" value={notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setNotes(e.target.value)}/>
       <div style={{marginBottom:14}}>
         <Lbl>Signing Supervisor</Lbl>
@@ -1133,7 +1105,8 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
         <input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)} style={{width:16,height:16}}/>
         I have reviewed this invoice and approve it for accounting.
       </label>
-      <Btn variant="success" disabled={!checked||!supName} onClick={handleApprove}>
+      <Btn variant="success" disabled={!checked||!supName}
+        onClick={()=>onApprove(sel, notes, supName)}>
         ✓ Approve & Send to Accounting
       </Btn>
     </div>
