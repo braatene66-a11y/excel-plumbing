@@ -162,14 +162,86 @@ const TotalsBox = ({ t, applyTax=true }) => (
 );
 
 const MatTable = ({ materials=[], onUpdate }) => {
-  const [row, setRow] = useState({description:"",qty:"",unitPrice:""});
-  const add = () => { if(!row.description) return; onUpdate([...materials,{...row,id:Date.now()}]); setRow({description:"",qty:"",unitPrice:""}); };
+  const [row, setRow]     = useState({description:"",qty:"",unitPrice:""});
+  const [editId, setEditId] = useState(null);
+  const [editVals, setEditVals] = useState({});
+
+  const add = () => {
+    if(!row.description) return;
+    onUpdate([...materials,{...row,id:Date.now()}]);
+    setRow({description:"",qty:"",unitPrice:""});
+  };
+
+  const startEdit = (m) => {
+    setEditId(m.id);
+    setEditVals({description:m.description,qty:m.qty,unitPrice:m.unitPrice});
+  };
+
+  const saveEdit = () => {
+    onUpdate(materials.map(m=>m.id===editId?{...m,...editVals}:m));
+    setEditId(null);
+  };
+
+  const cellSt = {padding:"6px 8px"};
+  const inpSt  = {...iSt,padding:"5px 8px",fontSize:13};
+
   return (<>
-    {materials.length>0 && <div style={{overflowX:"auto",marginBottom:14}}>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:400}}>
-        <thead><tr style={{background:"#f9fafb"}}>{["Description","Qty","Unit Price","Line Total",""].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-        <tbody>{materials.map(m=>{const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0); return <tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px"}}>{m.description}</td><td style={{padding:"8px 10px"}}>{m.qty}</td><td style={{padding:"8px 10px"}}>{fmt$(m.unitPrice)}</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(lt)}</td><td style={{padding:"8px 10px"}}><button onClick={()=>onUpdate(materials.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:16}}>✕</button></td></tr>;})}</tbody>
-      </table></div>}
+    {materials.length>0 && (
+      <div style={{overflowX:"auto",marginBottom:14}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:420}}>
+          <thead>
+            <tr style={{background:"#f9fafb"}}>
+              {["Description","Qty","Unit Price","Line Total",""].map(h=>(
+                <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {materials.map(m=>{
+              const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0);
+              const isEditing = editId===m.id;
+              return (
+                <tr key={m.id} style={{borderTop:"1px solid #f3f4f6",background:isEditing?"#fffbeb":"white"}}>
+                  <td style={cellSt}>
+                    {isEditing
+                      ? <input style={{...inpSt,minWidth:160}} value={editVals.description} onChange={e=>setEditVals(p=>({...p,description:e.target.value}))}/>
+                      : m.description}
+                  </td>
+                  <td style={cellSt}>
+                    {isEditing
+                      ? <input type="number" style={{...inpSt,width:60}} value={editVals.qty} onChange={e=>setEditVals(p=>({...p,qty:e.target.value}))}/>
+                      : m.qty}
+                  </td>
+                  <td style={cellSt}>
+                    {isEditing
+                      ? <input type="number" style={{...inpSt,width:80}} value={editVals.unitPrice} onChange={e=>setEditVals(p=>({...p,unitPrice:e.target.value}))}/>
+                      : fmt$(m.unitPrice)}
+                  </td>
+                  <td style={{...cellSt,fontWeight:700}}>
+                    {isEditing
+                      ? fmt$((parseFloat(editVals.qty)||0)*(parseFloat(editVals.unitPrice)||0))
+                      : fmt$(lt)}
+                  </td>
+                  <td style={{...cellSt,whiteSpace:"nowrap"}}>
+                    {isEditing ? (
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={saveEdit} style={{background:"#059669",border:"none",borderRadius:5,color:"white",cursor:"pointer",padding:"3px 9px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✓</button>
+                        <button onClick={()=>setEditId(null)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:5,color:"#6b7280",cursor:"pointer",padding:"3px 9px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
+                      </div>
+                    ):(
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={()=>startEdit(m)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:5,color:"#1e40af",cursor:"pointer",padding:"3px 9px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✎</button>
+                        <button onClick={()=>onUpdate(materials.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 4px"}}>✕</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
       <Inp label="Material / Part" value={row.description} placeholder='e.g. Copper pipe ½"' onChange={e=>setRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&add()}/>
       <Inp label="Qty" type="number" value={row.qty} placeholder="1" onChange={e=>setRow(p=>({...p,qty:e.target.value}))}/>
