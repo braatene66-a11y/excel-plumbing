@@ -1086,22 +1086,16 @@ const SupervisorMatTable = ({ materials=[], onUpdate }) => {
 };
 
 const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
-  const [draft,   setDraft]   = useState({...sel});
   const [notes,   setNotes]   = useState("");
   const [supName, setSupName] = useState("");
   const [checked, setChecked] = useState(false);
   return (
     <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #f59e0b"}}>
-      <SecHead>Supervisor Review & Invoice Corrections</SecHead>
-      <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"10px 14px",marginBottom:18,fontSize:13,color:"#92400e",fontWeight:600}}>
-        ✏️ Click any field below to edit description, quantity, or price. Add or remove rows as needed.
+      <SecHead>Supervisor Approval</SecHead>
+      <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#92400e"}}>
+        <div style={{fontWeight:700,marginBottom:4}}>📝 Need to correct the invoice?</div>
+        Use the <strong>✎ Edit Invoice</strong> button at the top right to fix materials, quantities, prices, and labor — then come back here to approve.
       </div>
-      <div style={{marginBottom:8,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Materials</div>
-      <SupervisorMatTable materials={draft.materials||[]} onUpdate={m=>setDraft(p=>({...p,materials:m}))}/>
-      <div style={{borderBottom:"1px solid #e5e7eb",margin:"12px 0"}}/>
-      <div style={{marginBottom:12,fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>Labor</div>
-      <LaborPanel data={draft} onChange={updated=>setDraft(updated)}/>
-      <div style={{borderBottom:"1px solid #e5e7eb",margin:"16px 0"}}/>
       <Txt label="Supervisor Notes (optional)" value={notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setNotes(e.target.value)}/>
       <div style={{marginBottom:14}}>
         <Lbl>Signing Supervisor</Lbl>
@@ -1114,7 +1108,9 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
         <input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)} style={{width:16,height:16}}/>
         I have reviewed this invoice and approve it for accounting.
       </label>
-      <Btn variant="success" disabled={!checked||!supName} onClick={()=>onApprove(draft, notes, supName)}>✓ Approve & Send to Accounting</Btn>
+      <Btn variant="success" disabled={!checked||!supName} onClick={()=>onApprove(sel, notes, supName)}>
+        ✓ Approve & Send to Accounting
+      </Btn>
     </div>
   );
 };
@@ -1525,7 +1521,7 @@ function App() {
                 <div style={{display:"flex",gap:8}}>
                   {role==="supervisor" && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="sky" small onClick={()=>setDispOrder(sel)}>📤 {sel.dispatchedTo?"Reassign":"Dispatch"}</Btn>}
                   {/* Only supervisors/accounting can edit — techs use the action panels below */}
-                  {(role==="supervisor"||role==="accounting") && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit</Btn>}
+                  {(role==="supervisor"||role==="accounting") && (sel.status==="open"||sel.status==="dispatched"||sel.status==="awaiting_supervisor") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit Invoice</Btn>}
                 </div>
               </div>
 
