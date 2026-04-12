@@ -991,13 +991,26 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
 // ═══════════════════════════════════════════════════════
 // Each row manages its own local state — no parent re-render while typing
 const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
-  const [notes,   setNotes]   = useState("");
-  const [supName, setSupName] = useState("");
-  const [checked, setChecked] = useState(false);
+  const [notes,    setNotes]    = useState("");
+  const [supName,  setSupName]  = useState("");
+  const [checked,  setChecked]  = useState(false);
+  const [applyTax, setApplyTax] = useState(sel.applyTax !== false);
 
   return (
     <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #f59e0b"}}>
       <SecHead>Supervisor Review & Approval</SecHead>
+
+      {/* Sales tax toggle */}
+      <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginBottom:16,
+        padding:"12px 14px",borderRadius:8,
+        background:applyTax?"#f0fdf4":"#fef2f2",
+        border:`1px solid ${applyTax?"#86efac":"#fecaca"}`}}>
+        <input type="checkbox" checked={applyTax} onChange={e=>setApplyTax(e.target.checked)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
+        <span style={{fontSize:14,fontWeight:600,color:applyTax?"#166534":"#dc2626"}}>
+          {applyTax ? "✓ Sales Tax (8%) applied to materials" : "✗ No sales tax on this job"}
+        </span>
+      </label>
+
       <Txt label="Supervisor Notes (optional)" value={notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setNotes(e.target.value)}/>
       <div style={{marginBottom:14}}>
         <Lbl>Signing Supervisor</Lbl>
@@ -1011,7 +1024,7 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
         I have reviewed this invoice and approve it for accounting.
       </label>
       <Btn variant="success" disabled={!checked||!supName}
-        onClick={()=>onApprove(sel, notes, supName)}>
+        onClick={()=>onApprove({...sel, applyTax}, notes, supName)}>
         ✓ Approve & Send to Accounting
       </Btn>
     </div>
