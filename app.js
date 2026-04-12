@@ -129,6 +129,8 @@ const DEFAULT_CONFIG = {
   accountingStaff: ["Ginger Garrett"],
 };
 
+const DEFAULT_PRICEBOOK = [{"id": "100", "category": "PVC", "description": "Schedule 40 PVC Pipe 1/2\"", "size": "1/2\"", "unit": "10-ft Stick", "price": 4.0}, {"id": "102", "category": "PVC", "description": "PVC 90\u00b0 Elbow (Street) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "103", "category": "PVC", "description": "PVC 90\u00b0 Elbow (S x S) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "104", "category": "PVC", "description": "PVC 45\u00b0 Elbow (S x S) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "105", "category": "PVC", "description": "PVC 45\u00b0 Elbow (Street) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "106", "category": "PVC", "description": "PVC Tee (S x S x S) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "107", "category": "PVC", "description": "PVC Male Adapter (MxS) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "108", "category": "PVC", "description": "PVC Female Adapter (FxS) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "109", "category": "PVC", "description": "Schedule 40 PVC Pipe 3/4\"", "size": "3/4\"", "unit": "10-ft Stick", "price": 6.0}, {"id": "110", "category": "PVC", "description": "Schedule 40 PVC Pipe 3/4\"", "size": "3/4\"", "unit": "Per Foot", "price": 1.0}, {"id": "111", "category": "PVC", "description": "PVC 90\u00b0 Elbow (Street) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "112", "category": "PVC", "description": "PVC 90\u00b0 Elbow (S x S) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "113", "category": "PVC", "description": "PVC 45\u00b0 Elbow (S x S) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "114", "category": "PVC", "description": "PVC 45\u00b0 Elbow (Street) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "115", "category": "PVC", "description": "PVC Tee (S x S x S) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "116", "category": "PVC", "description": "PVC Male Adapter (MxS) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "117", "category": "PVC", "description": "PVC Female Adapter (FxS) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 1.0}, {"id": "118", "category": "PVC", "description": "Schedule 40 PVC Pipe 1\"", "size": "1\"", "unit": "10-ft Stick", "price": 7.0}, {"id": "119", "category": "PVC", "description": "Schedule 40 PVC Pipe 1\"", "size": "1\"", "unit": "Per Foot", "price": 1.0}, {"id": "120", "category": "PVC", "description": "PVC 90\u00b0 Elbow (Street) 1\"", "size": "1\"", "unit": "Each", "price": 1.0}, {"id": "121", "category": "PVC", "description": "PVC 90\u00b0 Elbow (S x S) 1\"", "size": "1\"", "unit": "Each", "price": 1.0}, {"id": "122", "category": "PVC", "description": "PVC 45\u00b0 Elbow (S x S) 1\"", "size": "1\"", "unit": "Each", "price": 1.0}, {"id": "123", "category": "PVC", "description": "PVC 45\u00b0 Elbow (Street) 1\"", "size": "1\"", "unit": "Each", "price": 2.0}, {"id": "124", "category": "PVC", "description": "PVC Tee (S x S x S) 1\"", "size": "1\"", "unit": "Each", "price": 2.0}, {"id": "125", "category": "PVC", "description": "PVC Male Adapter (MxS) 1\"", "size": "1\"", "unit": "Each", "price": 1.0}, {"id": "126", "category": "PVC", "description": "PVC Female Adapter (FxS) 1\"", "size": "1\"", "unit": "Each", "price": 1.0}, {"id": "127", "category": "PVC", "description": "Schedule 40 PVC Pipe 1-1/2\"", "size": "1-1/2\"", "unit": "10-ft Stick", "price": 12.0}, {"id": "128", "category": "PVC", "description": "Schedule 40 PVC Pipe 1-1/2\"", "size": "1-1/2\"", "unit": "Per Foot", "price": 1.0}, {"id": "129", "category": "PVC", "description": "PVC 90\u00b0 Elbow (Street) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 3.0}, {"id": "130", "category": "PVC", "description": "PVC 90\u00b0 Elbow (S x S) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 3.0}, {"id": "131", "category": "PVC", "description": "PVC Tee (S x S x S) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 4.0}, {"id": "132", "category": "PVC", "description": "PVC Coupling (S x S) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 2.0}, {"id": "133", "category": "PVC", "description": "PVC Test Cap 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 3.0}, {"id": "134", "category": "PVC", "description": "PVC J Hook Hanger 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 2.0}, {"id": "135", "category": "PVC", "description": "Schedule 40 PVC Pipe 2\"", "size": "2\"", "unit": "10-ft Stick", "price": 16.0}, {"id": "136", "category": "PVC", "description": "Schedule 40 PVC Pipe 2\"", "size": "2\"", "unit": "Per Foot", "price": 2.0}, {"id": "137", "category": "PVC", "description": "PVC 90\u00b0 Elbow (Street) 2\"", "size": "2\"", "unit": "Each", "price": 4.0}, {"id": "138", "category": "PVC", "description": "PVC 90\u00b0 Elbow (S x S) 2\"", "size": "2\"", "unit": "Each", "price": 4.0}, {"id": "139", "category": "PVC", "description": "PVC 45\u00b0 Elbow (S x S) 2\"", "size": "2\"", "unit": "Each", "price": 4.0}, {"id": "140", "category": "PVC", "description": "PVC 45\u00b0 Elbow (Street) 2\"", "size": "2\"", "unit": "Each", "price": 4.0}, {"id": "141", "category": "PVC", "description": "PVC Tee (S x S x S) 2\"", "size": "2\"", "unit": "Each", "price": 5.0}, {"id": "142", "category": "PVC", "description": "PVC Coupling (S x S) 2\"", "size": "2\"", "unit": "Each", "price": 3.0}, {"id": "143", "category": "PVC", "description": "PVC Wye (S x S x S) 2\"", "size": "2\"", "unit": "Each", "price": 9.0}, {"id": "144", "category": "PVC", "description": "PVC Long Sweep 90\u00b0 Elbow (S x S) 2\"", "size": "2\"", "unit": "Each", "price": 7.0}, {"id": "145", "category": "PVC", "description": "PVC Reducing Tee (S x S x S) 2x2x1-1/2x1-1/2", "size": "2x2x1-1/2x1-1/2", "unit": "Each", "price": 8.0}, {"id": "146", "category": "PVC", "description": "PVC Reducing Tee (S x S x S) 2x1-1/2", "size": "2x1-1/2", "unit": "Each", "price": 7.0}, {"id": "147", "category": "PVC", "description": "PVC Reducing Tee (S x S x S) 2x1-1/2x1-1/2", "size": "2x1-1/2x1-1/2", "unit": "Each", "price": 7.0}, {"id": "148", "category": "PVC", "description": "PVC Coupling Reducer (S x S) 2x1-1/2", "size": "2x1-1/2", "unit": "Each", "price": 4.0}, {"id": "149", "category": "PVC", "description": "PVC Reducer Bushing (S x S) 2x1-1/2", "size": "2x1-1/2", "unit": "Each", "price": 3.0}, {"id": "150", "category": "PVC", "description": "PVC Clean Out Tee (w/ Plug) 2\"", "size": "2\"", "unit": "Each", "price": 8.0}, {"id": "151", "category": "PVC", "description": "PVC J Hook Hanger 2\"", "size": "2\"", "unit": "Each", "price": 2.0}, {"id": "152", "category": "PVC", "description": "Schedule 40 PVC Pipe 3\"", "size": "3\"", "unit": "10-ft Stick", "price": 32.0}, {"id": "153", "category": "PVC", "description": "Schedule 40 PVC Pipe 3\"", "size": "3\"", "unit": "Per Foot", "price": 3.0}, {"id": "154", "category": "PVC", "description": "PVC 90\u00b0 Elbow (S x S) 3\"", "size": "3\"", "unit": "Each", "price": 9.0}, {"id": "155", "category": "PVC", "description": "PVC 90\u00b0 Elbow (Street) 3\"", "size": "3\"", "unit": "Each", "price": 10.0}, {"id": "156", "category": "PVC", "description": "PVC Long Sweep 90\u00b0 Elbow (S x S) 3\"", "size": "3\"", "unit": "Each", "price": 17.0}, {"id": "157", "category": "PVC", "description": "PVC Wye (S x S x S) 3\"", "size": "3\"", "unit": "Each", "price": 23.0}, {"id": "158", "category": "PVC", "description": "PVC Tee (S x S x S) 3\"", "size": "3\"", "unit": "Each", "price": 14.0}, {"id": "159", "category": "PVC", "description": "PVC Reducing Tee (S x S x S) 3x2", "size": "3x2", "unit": "Each", "price": 16.0}, {"id": "160", "category": "PVC", "description": "PVC Reducing Tee (S x S x S) 3x3x2x2", "size": "3x3x2x2", "unit": "Each", "price": 18.0}, {"id": "161", "category": "PVC", "description": "PVC Coupling Reducer (S x S) 3x2", "size": "3x2", "unit": "Each", "price": 6.0}, {"id": "162", "category": "PVC", "description": "PVC Reducer Bushing (S x S) 3x2", "size": "3x2", "unit": "Each", "price": 5.0}, {"id": "163", "category": "PVC", "description": "PVC Reducing Wye (S x S x S) 3x2", "size": "3x2", "unit": "Each", "price": 25.0}, {"id": "164", "category": "PVC", "description": "PVC Coupling (S x S) 3\"", "size": "3\"", "unit": "Each", "price": 8.0}, {"id": "165", "category": "PVC", "description": "PVC J Hook Hanger 3\"", "size": "3\"", "unit": "Each", "price": 3.0}, {"id": "166", "category": "PVC", "description": "Schedule 40 PVC Pipe 4\"", "size": "4\"", "unit": "10-ft Stick", "price": 44.0}, {"id": "167", "category": "PVC", "description": "Schedule 40 PVC Pipe 4\"", "size": "4\"", "unit": "Per Foot", "price": 4.0}, {"id": "168", "category": "PVC", "description": "PVC Long Sweep 90\u00b0 Elbow (S x S) 4\"", "size": "4\"", "unit": "Each", "price": 25.0}, {"id": "169", "category": "PVC", "description": "PVC 45\u00b0 Elbow (S x S) 4\"", "size": "4\"", "unit": "Each", "price": 16.0}, {"id": "170", "category": "PVC", "description": "PVC 45\u00b0 Elbow (Street) 4\"", "size": "4\"", "unit": "Each", "price": 17.0}, {"id": "171", "category": "PVC", "description": "PVC Coupling (S x S) 4\"", "size": "4\"", "unit": "Each", "price": 12.0}, {"id": "172", "category": "PVC", "description": "PVC Wye (S x S x S) 4\"", "size": "4\"", "unit": "Each", "price": 36.0}, {"id": "173", "category": "PVC", "description": "PVC Coupling Reducer (S x S) 4x3", "size": "4x3", "unit": "Each", "price": 8.0}, {"id": "174", "category": "PVC", "description": "PVC 90\u00b0 Elbow Reducing (S x S) 4x3", "size": "4x3", "unit": "Each", "price": 19.0}, {"id": "175", "category": "PVC", "description": "PVC Reducing Wye (S x S x S) 4x3", "size": "4x3", "unit": "Each", "price": 47.0}, {"id": "176", "category": "PVC", "description": "PVC J Hook Hanger 4\"", "size": "4\"", "unit": "Each", "price": 4.0}, {"id": "177", "category": "PVC", "description": "PVC Toilet Flange 4\"", "size": "4\"", "unit": "Each", "price": 11.0}, {"id": "400", "category": "COPPER PROPRESS", "description": "Type L Copper Pipe 1/2\"", "size": "1/2\"", "unit": "Per Foot", "price": 3.0}, {"id": "401", "category": "COPPER PROPRESS", "description": "Copper ProPress 90\u00b0 Elbow (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 6.0}, {"id": "402", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "403", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow Street (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "404", "category": "COPPER PROPRESS", "description": "Copper ProPress Tee (Press x Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 10.0}, {"id": "405", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "406", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling w/ Stop (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 8.0}, {"id": "407", "category": "COPPER PROPRESS", "description": "Copper ProPress Cap (Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 5.0}, {"id": "408", "category": "COPPER PROPRESS", "description": "Copper ProPress Male Adapter \u2013 Press x MPT 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "409", "category": "COPPER PROPRESS", "description": "Copper ProPress Female Adapter \u2013 Press x FPT 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "410", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducer (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 6.0}, {"id": "411", "category": "COPPER PROPRESS", "description": "Copper ProPress Union (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 24.0}, {"id": "412", "category": "COPPER PROPRESS", "description": "Copper ProPress Ball Valve (Press x Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 42.0}, {"id": "413", "category": "COPPER PROPRESS", "description": "Copper ProPress Transition Adapter \u2013 Press x PEX 1/2\"", "size": "1/2\"", "unit": "Each", "price": 8.0}, {"id": "414", "category": "COPPER PROPRESS", "description": "Type L Copper Pipe 3/4\"", "size": "3/4\"", "unit": "Per Foot", "price": 5.0}, {"id": "415", "category": "COPPER PROPRESS", "description": "Copper ProPress 90\u00b0 Elbow (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 9.0}, {"id": "416", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 10.0}, {"id": "417", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow Street (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 11.0}, {"id": "418", "category": "COPPER PROPRESS", "description": "Copper ProPress Tee (Press x Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 15.0}, {"id": "419", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 11.0}, {"id": "420", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling w/ Stop (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 12.0}, {"id": "421", "category": "COPPER PROPRESS", "description": "Copper ProPress Cap (Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 7.0}, {"id": "422", "category": "COPPER PROPRESS", "description": "Copper ProPress Male Adapter \u2013 Press x MPT 3/4\"", "size": "3/4\"", "unit": "Each", "price": 11.0}, {"id": "423", "category": "COPPER PROPRESS", "description": "Copper ProPress Female Adapter \u2013 Press x FPT 3/4\"", "size": "3/4\"", "unit": "Each", "price": 11.0}, {"id": "424", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducer (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 10.0}, {"id": "425", "category": "COPPER PROPRESS", "description": "Copper ProPress Union (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 34.0}, {"id": "426", "category": "COPPER PROPRESS", "description": "Copper ProPress Ball Valve (Press x Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 58.0}, {"id": "427", "category": "COPPER PROPRESS", "description": "Copper ProPress Transition Adapter \u2013 Press x PEX 3/4\"", "size": "3/4\"", "unit": "Each", "price": 12.0}, {"id": "428", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducing Tee (Press x Press x Press) 3/4x1/2", "size": "3/4x1/2", "unit": "Each", "price": 16.0}, {"id": "429", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducing Tee (Press x Press x Press) 3/4x1/2x1/2", "size": "3/4x1/2x1/2", "unit": "Each", "price": 15.0}, {"id": "430", "category": "COPPER PROPRESS", "description": "Type L Copper Pipe 1\"", "size": "1\"", "unit": "Per Foot", "price": 8.0}, {"id": "431", "category": "COPPER PROPRESS", "description": "Copper ProPress 90\u00b0 Elbow (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 15.0}, {"id": "432", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 16.0}, {"id": "433", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow Street (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 18.0}, {"id": "434", "category": "COPPER PROPRESS", "description": "Copper ProPress Tee (Press x Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 23.0}, {"id": "435", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 17.0}, {"id": "436", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling w/ Stop (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 18.0}, {"id": "437", "category": "COPPER PROPRESS", "description": "Copper ProPress Cap (Press) 1\"", "size": "1\"", "unit": "Each", "price": 11.0}, {"id": "438", "category": "COPPER PROPRESS", "description": "Copper ProPress Male Adapter \u2013 Press x MPT 1\"", "size": "1\"", "unit": "Each", "price": 17.0}, {"id": "439", "category": "COPPER PROPRESS", "description": "Copper ProPress Female Adapter \u2013 Press x FPT 1\"", "size": "1\"", "unit": "Each", "price": 18.0}, {"id": "440", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducer (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 15.0}, {"id": "441", "category": "COPPER PROPRESS", "description": "Copper ProPress Union (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 52.0}, {"id": "442", "category": "COPPER PROPRESS", "description": "Copper ProPress Ball Valve (Press x Press) 1\"", "size": "1\"", "unit": "Each", "price": 89.0}, {"id": "443", "category": "COPPER PROPRESS", "description": "Copper ProPress Transition Adapter \u2013 Press x PEX 1\"", "size": "1\"", "unit": "Each", "price": 19.0}, {"id": "444", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducing Tee (Press x Press x Press) 1x3/4", "size": "1x3/4", "unit": "Each", "price": 22.0}, {"id": "445", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducing Tee (Press x Press x Press) 1x3/4x3/4", "size": "1x3/4x3/4", "unit": "Each", "price": 21.0}, {"id": "446", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducing Coupling (Press x Press) 1x3/4", "size": "1x3/4", "unit": "Each", "price": 14.0}, {"id": "447", "category": "COPPER PROPRESS", "description": "Type L Copper Pipe 1-1/4\"", "size": "1-1/4\"", "unit": "Per Foot", "price": 12.0}, {"id": "448", "category": "COPPER PROPRESS", "description": "Copper ProPress 90\u00b0 Elbow (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 46.0}, {"id": "449", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 49.0}, {"id": "450", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow Street (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 53.0}, {"id": "451", "category": "COPPER PROPRESS", "description": "Copper ProPress Tee (Press x Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 70.0}, {"id": "452", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 36.0}, {"id": "453", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling w/ Stop (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 39.0}, {"id": "454", "category": "COPPER PROPRESS", "description": "Copper ProPress Cap (Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 32.0}, {"id": "455", "category": "COPPER PROPRESS", "description": "Copper ProPress Male Adapter \u2013 Press x MPT 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 51.0}, {"id": "456", "category": "COPPER PROPRESS", "description": "Copper ProPress Female Adapter \u2013 Press x FPT 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 54.0}, {"id": "457", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducer (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 46.0}, {"id": "458", "category": "COPPER PROPRESS", "description": "Copper ProPress Union (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 156.0}, {"id": "459", "category": "COPPER PROPRESS", "description": "Copper ProPress Ball Valve (Press x Press) 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 127.0}, {"id": "460", "category": "COPPER PROPRESS", "description": "Type L Copper Pipe 1-1/2\"", "size": "1-1/2\"", "unit": "Per Foot", "price": 15.0}, {"id": "461", "category": "COPPER PROPRESS", "description": "Copper ProPress 90\u00b0 Elbow (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 59.0}, {"id": "462", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 64.0}, {"id": "463", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow Street (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 69.0}, {"id": "464", "category": "COPPER PROPRESS", "description": "Copper ProPress Tee (Press x Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 90.0}, {"id": "465", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 47.0}, {"id": "466", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling w/ Stop (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 51.0}, {"id": "467", "category": "COPPER PROPRESS", "description": "Copper ProPress Cap (Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 42.0}, {"id": "468", "category": "COPPER PROPRESS", "description": "Copper ProPress Male Adapter \u2013 Press x MPT 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 67.0}, {"id": "469", "category": "COPPER PROPRESS", "description": "Copper ProPress Female Adapter \u2013 Press x FPT 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 70.0}, {"id": "470", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducer (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 60.0}, {"id": "471", "category": "COPPER PROPRESS", "description": "Copper ProPress Union (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 204.0}, {"id": "472", "category": "COPPER PROPRESS", "description": "Copper ProPress Ball Valve (Press x Press) 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 166.0}, {"id": "473", "category": "COPPER PROPRESS", "description": "Type L Copper Pipe 2\"", "size": "2\"", "unit": "Per Foot", "price": 24.0}, {"id": "474", "category": "COPPER PROPRESS", "description": "Copper ProPress 90\u00b0 Elbow (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 90.0}, {"id": "475", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 96.0}, {"id": "476", "category": "COPPER PROPRESS", "description": "Copper ProPress 45\u00b0 Elbow Street (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 103.0}, {"id": "477", "category": "COPPER PROPRESS", "description": "Copper ProPress Tee (Press x Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 136.0}, {"id": "478", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 72.0}, {"id": "479", "category": "COPPER PROPRESS", "description": "Copper ProPress Coupling w/ Stop (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 77.0}, {"id": "480", "category": "COPPER PROPRESS", "description": "Copper ProPress Cap (Press) 2\"", "size": "2\"", "unit": "Each", "price": 64.0}, {"id": "481", "category": "COPPER PROPRESS", "description": "Copper ProPress Male Adapter \u2013 Press x MPT 2\"", "size": "2\"", "unit": "Each", "price": 101.0}, {"id": "482", "category": "COPPER PROPRESS", "description": "Copper ProPress Female Adapter \u2013 Press x FPT 2\"", "size": "2\"", "unit": "Each", "price": 106.0}, {"id": "483", "category": "COPPER PROPRESS", "description": "Copper ProPress Reducer (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 91.0}, {"id": "484", "category": "COPPER PROPRESS", "description": "Copper ProPress Union (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 307.0}, {"id": "485", "category": "COPPER PROPRESS", "description": "Copper ProPress Ball Valve (Press x Press) 2\"", "size": "2\"", "unit": "Each", "price": 240.0}, {"id": "600", "category": "VIEGA PEX", "description": "Viega PEX Pipe 1/2\"", "size": "1/2\"", "unit": "10-ft Stick", "price": 6.0}, {"id": "601", "category": "VIEGA PEX", "description": "Viega PEX Pipe 1/2\"", "size": "1/2\"", "unit": "Per Foot", "price": 1.0}, {"id": "602", "category": "VIEGA PEX", "description": "Viega 90\u00b0 Elbow (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 6.0}, {"id": "603", "category": "VIEGA PEX", "description": "Viega 45\u00b0 Elbow (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 6.0}, {"id": "604", "category": "VIEGA PEX", "description": "Viega 45\u00b0 Elbow Street (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "605", "category": "VIEGA PEX", "description": "Viega Tee (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 8.0}, {"id": "606", "category": "VIEGA PEX", "description": "Viega Coupling (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 5.0}, {"id": "607", "category": "VIEGA PEX", "description": "Viega Cap (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 4.0}, {"id": "608", "category": "VIEGA PEX", "description": "Viega Male Adapter \u2013 PEX x MPT 1/2\"", "size": "1/2\"", "unit": "Each", "price": 6.0}, {"id": "609", "category": "VIEGA PEX", "description": "Viega Female Adapter \u2013 PEX x FPT 1/2\"", "size": "1/2\"", "unit": "Each", "price": 7.0}, {"id": "610", "category": "VIEGA PEX", "description": "Viega Reducer (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 6.0}, {"id": "611", "category": "VIEGA PEX", "description": "Viega Ball Valve (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 36.0}, {"id": "612", "category": "VIEGA PEX", "description": "Viega Transition Adapter \u2013 PEX x ProPress 1/2\"", "size": "1/2\"", "unit": "Each", "price": 8.0}, {"id": "613", "category": "VIEGA PEX", "description": "Viega Ear Ell (PEX Press) 1/2\"", "size": "1/2\"", "unit": "Each", "price": 16.0}, {"id": "614", "category": "VIEGA PEX", "description": "Viega PEX Pipe 3/4\"", "size": "3/4\"", "unit": "10-ft Stick", "price": 8.0}, {"id": "615", "category": "VIEGA PEX", "description": "Viega PEX Pipe 3/4\"", "size": "3/4\"", "unit": "Per Foot", "price": 1.0}, {"id": "616", "category": "VIEGA PEX", "description": "Viega 90\u00b0 Elbow (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 9.0}, {"id": "617", "category": "VIEGA PEX", "description": "Viega 45\u00b0 Elbow (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 9.0}, {"id": "618", "category": "VIEGA PEX", "description": "Viega 45\u00b0 Elbow Street (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 10.0}, {"id": "619", "category": "VIEGA PEX", "description": "Viega Tee (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 13.0}, {"id": "620", "category": "VIEGA PEX", "description": "Viega Coupling (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 7.0}, {"id": "621", "category": "VIEGA PEX", "description": "Viega Cap (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 6.0}, {"id": "622", "category": "VIEGA PEX", "description": "Viega Male Adapter \u2013 PEX x MPT 3/4\"", "size": "3/4\"", "unit": "Each", "price": 10.0}, {"id": "623", "category": "VIEGA PEX", "description": "Viega Female Adapter \u2013 PEX x FPT 3/4\"", "size": "3/4\"", "unit": "Each", "price": 10.0}, {"id": "624", "category": "VIEGA PEX", "description": "Viega Reducer (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 9.0}, {"id": "625", "category": "VIEGA PEX", "description": "Viega Ball Valve (PEX Press) 3/4\"", "size": "3/4\"", "unit": "Each", "price": 49.0}, {"id": "626", "category": "VIEGA PEX", "description": "Viega Transition Adapter \u2013 PEX x ProPress 3/4\"", "size": "3/4\"", "unit": "Each", "price": 12.0}, {"id": "627", "category": "VIEGA PEX", "description": "Viega PEX Pipe 1\"", "size": "1\"", "unit": "10-ft Stick", "price": 13.0}, {"id": "628", "category": "VIEGA PEX", "description": "Viega PEX Pipe 1\"", "size": "1\"", "unit": "Per Foot", "price": 1.0}, {"id": "629", "category": "VIEGA PEX", "description": "Viega 90\u00b0 Elbow (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 14.0}, {"id": "630", "category": "VIEGA PEX", "description": "Viega 45\u00b0 Elbow (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 15.0}, {"id": "631", "category": "VIEGA PEX", "description": "Viega 45\u00b0 Elbow Street (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 16.0}, {"id": "632", "category": "VIEGA PEX", "description": "Viega Tee (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 20.0}, {"id": "633", "category": "VIEGA PEX", "description": "Viega Coupling (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 11.0}, {"id": "634", "category": "VIEGA PEX", "description": "Viega Cap (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 9.0}, {"id": "635", "category": "VIEGA PEX", "description": "Viega Male Adapter \u2013 PEX x MPT 1\"", "size": "1\"", "unit": "Each", "price": 15.0}, {"id": "636", "category": "VIEGA PEX", "description": "Viega Female Adapter \u2013 PEX x FPT 1\"", "size": "1\"", "unit": "Each", "price": 16.0}, {"id": "637", "category": "VIEGA PEX", "description": "Viega Reducer (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 14.0}, {"id": "638", "category": "VIEGA PEX", "description": "Viega Ball Valve (PEX Press) 1\"", "size": "1\"", "unit": "Each", "price": 75.0}, {"id": "639", "category": "VIEGA PEX", "description": "Viega Transition Adapter \u2013 PEX x ProPress 1\"", "size": "1\"", "unit": "Each", "price": 19.0}, {"id": "900", "category": "TRIM PARTS", "description": "Wax Ring", "size": "", "unit": "Each", "price": 7.0}, {"id": "901", "category": "TRIM PARTS", "description": "Johnny Bolts", "size": "", "unit": "Set", "price": 5.0}, {"id": "902", "category": "TRIM PARTS", "description": "Braided Toilet Supply Line", "size": "", "unit": "Each", "price": 8.0}, {"id": "903", "category": "TRIM PARTS", "description": "Braided Sink Supply Line", "size": "", "unit": "Each", "price": 7.0}, {"id": "904", "category": "TRIM PARTS", "description": "Tail Piece 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 11.0}, {"id": "905", "category": "TRIM PARTS", "description": "Extension Tube 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 9.0}, {"id": "906", "category": "TRIM PARTS", "description": "P-Trap 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 14.0}, {"id": "907", "category": "TRIM PARTS", "description": "P-Trap 1-1/4\"", "size": "1-1/4\"", "unit": "Each", "price": 11.0}, {"id": "908", "category": "TRIM PARTS", "description": "Basket Strainer", "size": "", "unit": "Each", "price": 20.0}, {"id": "909", "category": "TRIM PARTS", "description": "Garbage Disposal", "size": "", "unit": "Each", "price": 124.0}, {"id": "910", "category": "TRIM PARTS", "description": "Tub Spout", "size": "", "unit": "Each", "price": 26.0}, {"id": "911", "category": "TRIM PARTS", "description": "Shower Head", "size": "", "unit": "Each", "price": 32.0}, {"id": "912", "category": "TRIM PARTS", "description": "Kitchen Sink Drain", "size": "", "unit": "Each", "price": 16.0}, {"id": "913", "category": "TRIM PARTS", "description": "Compression Straight Stop 1/2\"x5/8\"", "size": "1/2\"x5/8\"", "unit": "Each", "price": 11.0}, {"id": "914", "category": "TRIM PARTS", "description": "Compression Angle Stop 1/2\"x5/8\"", "size": "1/2\"x5/8\"", "unit": "Each", "price": 11.0}, {"id": "915", "category": "TRIM PARTS", "description": "Viega ProPress Straight Stop 1/2\"x5/8\"", "size": "1/2\"x5/8\"", "unit": "Each", "price": 16.0}, {"id": "916", "category": "TRIM PARTS", "description": "Viega ProPress Angle Stop 1/2\"x5/8\"", "size": "1/2\"x5/8\"", "unit": "Each", "price": 16.0}, {"id": "950", "category": "PARTS", "description": "Moen Tub/Shower Valve w/ Chrome Trim", "size": "", "unit": "Each", "price": 240.0}, {"id": "951", "category": "PARTS", "description": "Tub Drain", "size": "", "unit": "Each", "price": 36.0}, {"id": "952", "category": "PARTS", "description": "Shower Drain", "size": "", "unit": "Each", "price": 46.0}, {"id": "953", "category": "PARTS", "description": "Wall Hydrant", "size": "", "unit": "Each", "price": 58.0}, {"id": "954", "category": "PARTS", "description": "Sump Pump", "size": "", "unit": "Each", "price": 240.0}, {"id": "955", "category": "PARTS", "description": "Check Valve 1-1/2\"", "size": "1-1/2\"", "unit": "Each", "price": 29.0}, {"id": "956", "category": "PARTS", "description": "Nail Plates", "size": "", "unit": "Each", "price": 2.0}, {"id": "800", "category": "GAS", "description": "Gastite CSST Pipe 1/2\"", "size": "1/2\"", "unit": "Per Foot", "price": 5.0}, {"id": "801", "category": "GAS", "description": "BI 90\u00b0 Elbow 1/2\"", "size": "1/2\"", "unit": "Each", "price": 3.0}, {"id": "802", "category": "GAS", "description": "BI Tee 1/2\"", "size": "1/2\"", "unit": "Each", "price": 4.0}, {"id": "803", "category": "GAS", "description": "BI Cap 1/2\"", "size": "1/2\"", "unit": "Each", "price": 1.0}, {"id": "804", "category": "GAS", "description": "BI Coupling 1/2\"", "size": "1/2\"", "unit": "Each", "price": 2.0}, {"id": "805", "category": "GAS", "description": "BI Nipple 1/2\"", "size": "1/2\"", "unit": "Each", "price": 2.0}, {"id": "806", "category": "GAS", "description": "Threaded x Gastite Adapter 1/2\"", "size": "1/2\"", "unit": "Each", "price": 23.0}, {"id": "807", "category": "GAS", "description": "BI Union 1/2\"", "size": "1/2\"", "unit": "Each", "price": 8.0}, {"id": "808", "category": "GAS", "description": "Gastite Wall Termination 1/2\"", "size": "1/2\"", "unit": "Each", "price": 31.0}, {"id": "809", "category": "GAS", "description": "Gastite CSST Pipe 3/4\"", "size": "3/4\"", "unit": "Per Foot", "price": 7.0}, {"id": "810", "category": "GAS", "description": "BI 90\u00b0 Elbow 3/4\"", "size": "3/4\"", "unit": "Each", "price": 5.0}, {"id": "811", "category": "GAS", "description": "BI Tee 3/4\"", "size": "3/4\"", "unit": "Each", "price": 5.0}, {"id": "812", "category": "GAS", "description": "BI Cap 3/4\"", "size": "3/4\"", "unit": "Each", "price": 2.0}, {"id": "813", "category": "GAS", "description": "BI Coupling 3/4\"", "size": "3/4\"", "unit": "Each", "price": 3.0}, {"id": "814", "category": "GAS", "description": "BI Nipple 3/4\"", "size": "3/4\"", "unit": "Each", "price": 3.0}, {"id": "815", "category": "GAS", "description": "Threaded x Gastite Adapter 3/4\"", "size": "3/4\"", "unit": "Each", "price": 31.0}, {"id": "816", "category": "GAS", "description": "BI Union 3/4\"", "size": "3/4\"", "unit": "Each", "price": 11.0}, {"id": "817", "category": "GAS", "description": "Gastite Wall Termination 3/4\"", "size": "3/4\"", "unit": "Each", "price": 36.0}, {"id": "818", "category": "GAS", "description": "Gastite CSST Pipe 1\"", "size": "1\"", "unit": "Per Foot", "price": 9.0}, {"id": "819", "category": "GAS", "description": "BI 90\u00b0 Elbow 1\"", "size": "1\"", "unit": "Each", "price": 7.0}, {"id": "820", "category": "GAS", "description": "BI Tee 1\"", "size": "1\"", "unit": "Each", "price": 8.0}, {"id": "821", "category": "GAS", "description": "BI Cap 1\"", "size": "1\"", "unit": "Each", "price": 3.0}, {"id": "822", "category": "GAS", "description": "BI Coupling 1\"", "size": "1\"", "unit": "Each", "price": 4.0}, {"id": "823", "category": "GAS", "description": "BI Nipple 1\"", "size": "1\"", "unit": "Each", "price": 5.0}, {"id": "824", "category": "GAS", "description": "Threaded x Gastite Adapter 1\"", "size": "1\"", "unit": "Each", "price": 47.0}, {"id": "825", "category": "GAS", "description": "BI Union 1\"", "size": "1\"", "unit": "Each", "price": 16.0}, {"id": "826", "category": "GAS", "description": "Gastite Wall Termination 1\"", "size": "1\"", "unit": "Each", "price": 55.0}, {"id": "850", "category": "DUCTING", "description": "R8 Insulated Flex Duct 4\"", "size": "4\"", "unit": "Per Foot", "price": 3.0}, {"id": "851", "category": "DUCTING", "description": "Galvanized 30ga Pipe 4\"", "size": "4\"", "unit": "Per Foot", "price": 3.0}, {"id": "852", "category": "DUCTING", "description": "Galvanized 90 Elbow 4\"", "size": "4\"", "unit": "Each", "price": 8.0}, {"id": "853", "category": "DUCTING", "description": "R8 Insulated Flex Duct 6\"", "size": "6\"", "unit": "Per Foot", "price": 4.0}, {"id": "854", "category": "DUCTING", "description": "Galvanized 30ga Pipe 6\"", "size": "6\"", "unit": "Per Foot", "price": 5.0}, {"id": "855", "category": "DUCTING", "description": "Galvanized 90 Elbow 6\"", "size": "6\"", "unit": "Each", "price": 11.0}, {"id": "856", "category": "DUCTING", "description": "Take Off 6\"", "size": "6\"", "unit": "Each", "price": 9.0}, {"id": "857", "category": "DUCTING", "description": "R8 Insulated Flex Duct 8\"", "size": "8\"", "unit": "Per Foot", "price": 5.0}, {"id": "858", "category": "DUCTING", "description": "Galvanized 30ga Pipe 8\"", "size": "8\"", "unit": "Per Foot", "price": 8.0}, {"id": "859", "category": "DUCTING", "description": "Galvanized 90 Elbow 8\"", "size": "8\"", "unit": "Each", "price": 16.0}, {"id": "860", "category": "DUCTING", "description": "Take Off 8\"", "size": "8\"", "unit": "Each", "price": 13.0}, {"id": "861", "category": "DUCTING", "description": "Rectangular Duct 8x8", "size": "8x8", "unit": "Per 4-ft Section", "price": 27.0}, {"id": "862", "category": "DUCTING", "description": "Rectangular Duct End Cap 8x8", "size": "8x8", "unit": "Each", "price": 8.0}, {"id": "863", "category": "DUCTING", "description": "Rectangular Duct 12x8", "size": "12x8", "unit": "Per 4-ft Section", "price": 30.0}, {"id": "864", "category": "DUCTING", "description": "Rectangular Duct End Cap 12x8", "size": "12x8", "unit": "Each", "price": 10.0}, {"id": "865", "category": "DUCTING", "description": "Rectangular Duct 14x8", "size": "14x8", "unit": "Per 4-ft Section", "price": 34.0}, {"id": "866", "category": "DUCTING", "description": "Rectangular Duct End Cap 14x8", "size": "14x8", "unit": "Each", "price": 11.0}, {"id": "867", "category": "DUCTING", "description": "Rectangular Duct 16x8", "size": "16x8", "unit": "Per 4-ft Section", "price": 37.0}, {"id": "868", "category": "DUCTING", "description": "Rectangular Duct End Cap 16x8", "size": "16x8", "unit": "Each", "price": 12.0}, {"id": "869", "category": "DUCTING", "description": "Rectangular Duct 18x8", "size": "18x8", "unit": "Per 4-ft Section", "price": 42.0}, {"id": "870", "category": "DUCTING", "description": "Rectangular Duct End Cap 18x8", "size": "18x8", "unit": "Each", "price": 14.0}, {"id": "871", "category": "DUCTING", "description": "Rectangular Duct 20x8", "size": "20x8", "unit": "Per 4-ft Section", "price": 47.0}, {"id": "872", "category": "DUCTING", "description": "Rectangular Duct End Cap 20x8", "size": "20x8", "unit": "Each", "price": 15.0}, {"id": "873", "category": "DUCTING", "description": "Rectangular Duct 22x8", "size": "22x8", "unit": "Per 4-ft Section", "price": 52.0}, {"id": "874", "category": "DUCTING", "description": "Rectangular Duct End Cap 22x8", "size": "22x8", "unit": "Each", "price": 16.0}, {"id": "875", "category": "DUCTING", "description": "Rectangular Duct 24x8", "size": "24x8", "unit": "Per 4-ft Section", "price": 57.0}, {"id": "876", "category": "DUCTING", "description": "Rectangular Duct End Cap 24x8", "size": "24x8", "unit": "Each", "price": 17.0}, {"id": "877", "category": "DUCTING", "description": "Rectangular Duct 12x10", "size": "12x10", "unit": "Per 4-ft Section", "price": 35.0}, {"id": "878", "category": "DUCTING", "description": "Rectangular Duct End Cap 12x10", "size": "12x10", "unit": "Each", "price": 12.0}, {"id": "879", "category": "DUCTING", "description": "Rectangular Duct 14x10", "size": "14x10", "unit": "Per 4-ft Section", "price": 39.0}, {"id": "880", "category": "DUCTING", "description": "Rectangular Duct End Cap 14x10", "size": "14x10", "unit": "Each", "price": 13.0}, {"id": "881", "category": "DUCTING", "description": "Rectangular Duct 16x10", "size": "16x10", "unit": "Per 4-ft Section", "price": 42.0}, {"id": "882", "category": "DUCTING", "description": "Rectangular Duct End Cap 16x10", "size": "16x10", "unit": "Each", "price": 14.0}, {"id": "883", "category": "DUCTING", "description": "Rectangular Duct 18x10", "size": "18x10", "unit": "Per 4-ft Section", "price": 47.0}, {"id": "884", "category": "DUCTING", "description": "Rectangular Duct End Cap 18x10", "size": "18x10", "unit": "Each", "price": 15.0}, {"id": "885", "category": "DUCTING", "description": "Rectangular Duct 20x10", "size": "20x10", "unit": "Per 4-ft Section", "price": 52.0}, {"id": "886", "category": "DUCTING", "description": "Rectangular Duct End Cap 20x10", "size": "20x10", "unit": "Each", "price": 16.0}, {"id": "887", "category": "DUCTING", "description": "Rectangular Duct 22x10", "size": "22x10", "unit": "Per 4-ft Section", "price": 57.0}, {"id": "888", "category": "DUCTING", "description": "Rectangular Duct End Cap 22x10", "size": "22x10", "unit": "Each", "price": 17.0}, {"id": "889", "category": "DUCTING", "description": "Rectangular Duct 24x10", "size": "24x10", "unit": "Per 4-ft Section", "price": 63.0}, {"id": "890", "category": "DUCTING", "description": "Rectangular Duct End Cap 24x10", "size": "24x10", "unit": "Each", "price": 19.0}, {"id": "891", "category": "DUCTING", "description": "Rectangular Duct 25x10", "size": "25x10", "unit": "Per 4-ft Section", "price": 66.0}, {"id": "892", "category": "DUCTING", "description": "Rectangular Duct End Cap 25x10", "size": "25x10", "unit": "Each", "price": 19.0}, {"id": "893", "category": "DUCTING", "description": "Rectangular Duct 14x14", "size": "14x14", "unit": "Per 4-ft Section", "price": 51.0}, {"id": "894", "category": "DUCTING", "description": "Rectangular Duct End Cap 14x14", "size": "14x14", "unit": "Each", "price": 17.0}];
+
 // ═══════════════════════════════════════════════════════
 // UI PRIMITIVES
 // ═══════════════════════════════════════════════════════
@@ -161,15 +163,78 @@ const TotalsBox = ({ t, applyTax=true }) => (
   </div>
 );
 
-const MatTable = ({ materials=[], onUpdate }) => {
-  const [row, setRow]     = useState({description:"",qty:"",unitPrice:""});
+// Price Book Picker — searchable dropdown for techs to select parts
+const PriceBookPicker = ({ priceBook=[], onSelect }) => {
+  const [search, setSearch] = useState("");
+  const [catFilter, setCatFilter] = useState("All");
+  const [open, setOpen] = useState(false);
+  const cats = ["All", ...([...new Set(priceBook.map(p=>p.category))].sort())];
+  const filtered = priceBook.filter(p=>{
+    const matchCat = catFilter==="All" || p.category===catFilter;
+    const matchSearch = !search || p.description.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  }).slice(0,50);
+
+  const pick = (item) => {
+    onSelect(item);
+    setSearch(""); setOpen(false);
+  };
+
+  return (
+    <div style={{marginBottom:14,position:"relative"}}>
+      <Lbl>Select from Price Book (optional)</Lbl>
+      <div style={{display:"flex",gap:8,marginBottom:open?6:0}}>
+        <input style={{...iSt,flex:1,border:"2px solid #f47c00"}} value={search}
+          placeholder="🔍 Search parts… (e.g. elbow, copper, wax ring)"
+          onChange={e=>{ setSearch(e.target.value); setOpen(true); }}
+          onFocus={()=>setOpen(true)}/>
+        <select style={{...iSt,width:160}} value={catFilter} onChange={e=>{setCatFilter(e.target.value);setOpen(true);}}>
+          {cats.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <button onClick={()=>setOpen(o=>!o)} style={{padding:"9px 12px",border:"1px solid #d1d5db",borderRadius:8,background:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:"#374151",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+          {open?"▲ Close":"▼ Browse"}
+        </button>
+      </div>
+      {open && (
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"white",
+          border:"1px solid #e5e7eb",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,0.15)",
+          maxHeight:300,overflowY:"auto"}}>
+          {filtered.length===0 ? (
+            <div style={{padding:"16px",textAlign:"center",color:"#9ca3af",fontSize:13}}>No parts found</div>
+          ) : filtered.map(item=>(
+            <div key={item.id} onClick={()=>pick(item)}
+              style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f3f4f6",
+                display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}
+              onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:"#0f2640"}}>{item.description}</div>
+                <div style={{fontSize:11,color:"#9ca3af"}}>{item.category} · {item.unit}</div>
+              </div>
+              <div style={{fontSize:14,fontWeight:800,color:"#f47c00",flexShrink:0}}>${item.price.toFixed(2)}</div>
+            </div>
+          ))}
+          {filtered.length===50 && <div style={{padding:"10px 14px",fontSize:11,color:"#9ca3af",textAlign:"center"}}>Showing first 50 — type to narrow results</div>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MatTable = ({ materials=[], onUpdate, priceBook=[] }) => {
+  const [row, setRow]       = useState({description:"",qty:"1",unitPrice:""});
   const [editId, setEditId] = useState(null);
   const [editVals, setEditVals] = useState({});
 
   const add = () => {
     if(!row.description) return;
     onUpdate([...materials,{...row,id:Date.now()}]);
-    setRow({description:"",qty:"",unitPrice:""});
+    setRow({description:"",qty:"1",unitPrice:""});
+  };
+
+  const selectFromPriceBook = (item) => {
+    // Add directly as a new line item with qty 1
+    onUpdate([...materials,{id:Date.now(),description:item.description,qty:"1",unitPrice:String(item.price)}]);
   };
 
   const startEdit = (m) => {
@@ -242,8 +307,12 @@ const MatTable = ({ materials=[], onUpdate }) => {
         </table>
       </div>
     )}
+    {priceBook.length>0 && (
+      <PriceBookPicker priceBook={priceBook} onSelect={selectFromPriceBook}/>
+    )}
+    <div style={{marginBottom:6,fontSize:11,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>Or add manually:</div>
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
-      <Inp label="Material / Part" value={row.description} placeholder='e.g. Copper pipe ½"' onChange={e=>setRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&add()}/>
+      <Inp label="Description" value={row.description} placeholder='e.g. Copper pipe ½"' onChange={e=>setRow(p=>({...p,description:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&add()}/>
       <Inp label="Qty" type="number" value={row.qty} placeholder="1" onChange={e=>setRow(p=>({...p,qty:e.target.value}))}/>
       <Inp label="Unit Price $" type="number" value={row.unitPrice} placeholder="0.00" onChange={e=>setRow(p=>({...p,unitPrice:e.target.value}))}/>
       <div style={{marginBottom:14}}><Btn small onClick={add}>+ Add</Btn></div>
@@ -479,6 +548,160 @@ const SetupScreen = ({ onBack }) => {
 // ═══════════════════════════════════════════════════════
 // WEEKLY HOURS REPORT
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// PRICE BOOK MANAGER (Supervisor only)
+// ═══════════════════════════════════════════════════════
+const PRICE_CATS = ["PVC","COPPER PROPRESS","VIEGA PEX","TRIM PARTS","PARTS","GAS","DUCTING","OTHER"];
+
+const PriceBookManager = ({ priceBook, onUpdate, onBack }) => {
+  const [search, setSearch]   = useState("");
+  const [catFilter, setCatFilter] = useState("All");
+  const [editId, setEditId]   = useState(null);
+  const [editVals, setEditVals] = useState({});
+  const [newItem, setNewItem] = useState({description:"",category:"PARTS",unit:"Each",price:""});
+  const [saving, setSaving]   = useState(false);
+
+  const cats = ["All", ...PRICE_CATS];
+  const filtered = priceBook.filter(p=>{
+    const matchCat = catFilter==="All" || p.category===catFilter;
+    const matchSearch = !search || p.description.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const saveItem = async (item) => {
+    setSaving(true);
+    const key = item.id || `pb_${Date.now()}`;
+    const saved = {...item, id:key};
+    await fsSet("priceBook", key, saved);
+    const updated = priceBook.find(p=>p.id===key)
+      ? priceBook.map(p=>p.id===key?saved:p)
+      : [...priceBook, saved].sort((a,b)=>a.description.localeCompare(b.description));
+    onUpdate(updated);
+    setSaving(false);
+  };
+
+  const deleteItem = async (id) => {
+    if(!window.confirm("Delete this item from the price book?")) return;
+    await fsDel("priceBook", id);
+    onUpdate(priceBook.filter(p=>p.id!==id));
+  };
+
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditVals({description:item.description, category:item.category, unit:item.unit||"Each", price:item.price});
+  };
+
+  const saveEdit = async () => {
+    const item = priceBook.find(p=>p.id===editId);
+    await saveItem({...item,...editVals,price:parseFloat(editVals.price)||0});
+    setEditId(null);
+  };
+
+  const addNew = async () => {
+    if(!newItem.description||!newItem.price) return;
+    await saveItem({...newItem,id:`pb_${Date.now()}`,price:parseFloat(newItem.price)||0});
+    setNewItem({description:"",category:"PARTS",unit:"Each",price:""});
+  };
+
+  const inpSt2 = {...iSt, padding:"5px 8px", fontSize:13};
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📦 Price Book</span>
+        <span style={{fontSize:13,color:"#9ca3af"}}>({priceBook.length} items)</span>
+      </div>
+
+      {/* Add new item */}
+      <div style={{background:"white",borderRadius:12,padding:"18px 20px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>Add New Item</div>
+        <div style={{display:"grid",gridTemplateColumns:"3fr 1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
+          <Inp label="Description" value={newItem.description} placeholder="Part name and size" onChange={e=>setNewItem(p=>({...p,description:e.target.value}))}/>
+          <div style={{marginBottom:14}}>
+            <Lbl>Category</Lbl>
+            <select style={iSt} value={newItem.category} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))}>
+              {PRICE_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <Inp label="Unit" value={newItem.unit} placeholder="Each" onChange={e=>setNewItem(p=>({...p,unit:e.target.value}))}/>
+          <Inp label="Price $" type="number" value={newItem.price} placeholder="0.00" onChange={e=>setNewItem(p=>({...p,price:e.target.value}))}/>
+          <div style={{marginBottom:14}}><Btn onClick={addNew} disabled={!newItem.description||!newItem.price||saving}>+ Add</Btn></div>
+        </div>
+      </div>
+
+      {/* Search & filter */}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input style={{...iSt,flex:1,minWidth:200}} value={search} placeholder="🔍 Search parts…" onChange={e=>setSearch(e.target.value)}/>
+        <select style={{...iSt,width:180}} value={catFilter} onChange={e=>setCatFilter(e.target.value)}>
+          {cats.map(c=><option key={c} value={c}>{c} {c!=="All"?`(${priceBook.filter(p=>p.category===c).length})`:""}</option>)}
+        </select>
+      </div>
+
+      {/* Items table */}
+      <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:520}}>
+            <thead>
+              <tr style={{background:"#f9fafb"}}>
+                {["Description","Category","Unit","Price",""].map(h=>(
+                  <th key={h} style={{padding:"10px 14px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length===0 && <tr><td colSpan={5} style={{padding:"24px",textAlign:"center",color:"#9ca3af"}}>No items found</td></tr>}
+              {filtered.map(item=>{
+                const isEditing = editId===item.id;
+                return (
+                  <tr key={item.id} style={{borderTop:"1px solid #f3f4f6",background:isEditing?"#fffbeb":"white"}}>
+                    <td style={{padding:"8px 14px"}}>
+                      {isEditing
+                        ? <input style={{...inpSt2,minWidth:200}} value={editVals.description} onChange={e=>setEditVals(p=>({...p,description:e.target.value}))}/>
+                        : <span style={{fontWeight:600,color:"#0f2640"}}>{item.description}</span>}
+                    </td>
+                    <td style={{padding:"8px 14px"}}>
+                      {isEditing
+                        ? <select style={{...inpSt2,width:140}} value={editVals.category} onChange={e=>setEditVals(p=>({...p,category:e.target.value}))}>{PRICE_CATS.map(c=><option key={c} value={c}>{c}</option>)}</select>
+                        : <span style={{fontSize:11,background:"#e0e7ff",color:"#3730a3",borderRadius:20,padding:"2px 8px",fontWeight:700}}>{item.category}</span>}
+                    </td>
+                    <td style={{padding:"8px 14px"}}>
+                      {isEditing
+                        ? <input style={{...inpSt2,width:80}} value={editVals.unit} onChange={e=>setEditVals(p=>({...p,unit:e.target.value}))}/>
+                        : item.unit}
+                    </td>
+                    <td style={{padding:"8px 14px",fontWeight:700,color:"#059669"}}>
+                      {isEditing
+                        ? <input type="number" style={{...inpSt2,width:80}} value={editVals.price} onChange={e=>setEditVals(p=>({...p,price:e.target.value}))}/>
+                        : `$${item.price.toFixed(2)}`}
+                    </td>
+                    <td style={{padding:"8px 14px"}}>
+                      {isEditing ? (
+                        <div style={{display:"flex",gap:5}}>
+                          <button onClick={saveEdit} disabled={saving} style={{background:"#059669",border:"none",borderRadius:5,color:"white",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✓ Save</button>
+                          <button onClick={()=>setEditId(null)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:5,color:"#6b7280",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Cancel</button>
+                        </div>
+                      ):(
+                        <div style={{display:"flex",gap:5}}>
+                          <button onClick={()=>startEdit(item)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:5,color:"#1e40af",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✎</button>
+                          <button onClick={()=>deleteItem(item.id)} style={{background:"none",border:"1px solid #fecaca",borderRadius:5,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style={{marginTop:12,fontSize:12,color:"#9ca3af"}}>
+        💡 Changes save immediately and show up for all technicians right away.
+      </div>
+    </div>
+  );
+};
+
 const WeeklyReport = ({ orders, onBack }) => {
   const [wk, setWk] = useState(getMondayOf(todayISO()));
   const we = addDays(wk,6);
@@ -1072,6 +1295,7 @@ function App() {
   const [screen, setScreen]     = useState("login");
   const [orders, setOrders]     = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [priceBook, setPriceBook] = useState(DEFAULT_PRICEBOOK);
   const [config, setConfig]     = useState(DEFAULT_CONFIG);
   const [loading, setLoading]   = useState(false);
   const [syncing, setSyncing]   = useState(false);
@@ -1086,14 +1310,21 @@ function App() {
   const loadData = useCallback(async () => {
     setSyncing(true);
     try {
-      const [ords, cfg, custs] = await Promise.all([
+      const [ords, cfg, custs, pb] = await Promise.all([
         fsList("workOrders"),
         fsGet("config","team").catch(()=>DEFAULT_CONFIG),
         fsList("customers").catch(()=>[]),
+        fsList("priceBook").catch(()=>[]),
       ]);
       setOrders(ords.sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")));
       setConfig({...DEFAULT_CONFIG,...cfg});
       setCustomers(custs.sort((a,b)=>(a.customerName||"").localeCompare(b.customerName||"")));
+      if(pb.length>0) setPriceBook(pb.sort((a,b)=>a.description.localeCompare(b.description)));
+      else {
+        // First time — seed Firestore with the built-in price book
+        setPriceBook(DEFAULT_PRICEBOOK);
+        DEFAULT_PRICEBOOK.forEach(item => fsSet("priceBook", item.id, item).catch(()=>{}));
+      }
     } catch(e) { console.error("Load error:", e); }
     finally { setSyncing(false); }
   }, []);
@@ -1207,6 +1438,9 @@ function App() {
         {/* ── TIME CARDS ── */}
         {view==="timecards" && <TimeCardReport onBack={goDash} canEdit={role==="supervisor"||role==="accounting"}/>}
 
+        {/* ── PRICE BOOK ── */}
+        {view==="pricebook" && <PriceBookManager priceBook={priceBook} onUpdate={setPriceBook} onBack={goDash}/>}
+
         {/* ── CUSTOMER DIRECTORY ── */}
         {view==="customers" && (
           <div>
@@ -1286,6 +1520,7 @@ function App() {
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
                   <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>
+                  <button onClick={()=>setView("pricebook")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#7c3aed",color:"white"}}>📦 Price Book ({priceBook.length})</button>
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
                 {role==="accounting" && <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>}
@@ -1398,7 +1633,7 @@ function App() {
               <HR/>
               <div style={{padding:"22px 24px"}}>
                 <SecHead>Materials & Parts</SecHead>
-                <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)}/>
+                <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)} priceBook={priceBook}/>
                 <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginTop:8,padding:"10px 14px",background:form.applyTax!==false?"#f0fdf4":"#fef2f2",border:`1px solid ${form.applyTax!==false?"#86efac":"#fecaca"}`,borderRadius:8,fontSize:14,color:form.applyTax!==false?"#166534":"#dc2626",fontWeight:600}}>
                   <input type="checkbox" checked={form.applyTax!==false} onChange={e=>setF("applyTax",e.target.checked)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
                   {form.applyTax!==false ? "✓ Sales Tax (8%) applied to materials" : "✗ No sales tax on this job"}
