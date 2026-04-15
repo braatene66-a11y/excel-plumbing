@@ -73,6 +73,7 @@ const STATUSES = {
   open:                { label:"Open",                color:"#374151", bg:"#f9fafb", border:"#d1d5db" },
   dispatched:          { label:"Dispatched",          color:"#0369a1", bg:"#e0f2fe", border:"#7dd3fc" },
   in_progress:         { label:"In Progress",         color:"#1e40af", bg:"#eff6ff", border:"#93c5fd" },
+  needs_correction:    { label:"Needs Correction",    color:"#be123c", bg:"#fff1f2", border:"#fda4af" },
   awaiting_supervisor: { label:"Awaiting Supervisor", color:"#92400e", bg:"#fffbeb", border:"#fbbf24" },
   awaiting_accounting: { label:"Awaiting Accounting", color:"#5b21b6", bg:"#f5f3ff", border:"#c4b5fd" },
   closed:              { label:"Closed",              color:"#065f46", bg:"#ecfdf5", border:"#6ee7b7" },
@@ -1213,11 +1214,13 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
 // SUPERVISOR PANEL (editable invoice)
 // ═══════════════════════════════════════════════════════
 // Each row manages its own local state — no parent re-render while typing
-const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
-  const [notes,    setNotes]    = useState("");
-  const [supName,  setSupName]  = useState("");
-  const [checked,  setChecked]  = useState(false);
-  const [applyTax, setApplyTax] = useState(sel.applyTax !== false);
+const SupervisorPanel = ({ sel, onApprove, onSendBack, supervisors=[] }) => {
+  const [notes,        setNotes]        = useState("");
+  const [supName,      setSupName]      = useState("");
+  const [checked,      setChecked]      = useState(false);
+  const [applyTax,     setApplyTax]     = useState(sel.applyTax !== false);
+  const [sendingBack,  setSendingBack]  = useState(false);
+  const [corrections,  setCorrections]  = useState("");
 
   return (
     <div style={{padding:"20px 24px",background:"#fffbeb",borderTop:"3px solid #f59e0b"}}>
@@ -1234,7 +1237,30 @@ const SupervisorPanel = ({ sel, onApprove, supervisors=[] }) => {
         </span>
       </label>
 
-      <Txt label="Supervisor Notes (optional)" value={notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setNotes(e.target.value)}/>
+      {/* Send back section */}
+      {!sendingBack ? (
+        <div style={{marginBottom:16}}>
+          <Btn variant="red" small onClick={()=>setSendingBack(true)}>
+            ↩ Send Back for Corrections
+          </Btn>
+        </div>
+      ) : (
+        <div style={{background:"#fff1f2",border:"1px solid #fda4af",borderRadius:8,padding:"14px 16px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#be123c",marginBottom:10}}>↩ Send Back for Corrections</div>
+          <Txt label="What needs to be corrected? *" value={corrections} rows={3}
+            placeholder="Describe what the tech needs to fix — missing materials, wrong hours, incorrect parts…"
+            onChange={e=>setCorrections(e.target.value)}/>
+          <div style={{display:"flex",gap:8}}>
+            <Btn variant="red" disabled={!corrections.trim()}
+              onClick={()=>onSendBack(corrections, supName||"Supervisor")}>
+              ↩ Send Back to Tech
+            </Btn>
+            <Btn variant="outline" small onClick={()=>{ setSendingBack(false); setCorrections(""); }}>Cancel</Btn>
+          </div>
+        </div>
+      )}
+
+      <Txt label="Supervisor Notes for Accounting (optional)" value={notes} rows={2} placeholder="Any notes for accounting…" onChange={e=>setNotes(e.target.value)}/>
       <div style={{marginBottom:14}}>
         <Lbl>Signing Supervisor</Lbl>
         <select style={iSt} value={supName} onChange={e=>setSupName(e.target.value)}>
@@ -1673,6 +1699,7 @@ function App() {
                   {role==="supervisor" && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="sky" small onClick={()=>setDispOrder(sel)}>📤 {sel.dispatchedTo?"Reassign":"Dispatch"}</Btn>}
                   {/* Only supervisors/accounting can edit — techs use the action panels below */}
                   {(role==="supervisor"||role==="accounting") && (sel.status==="open"||sel.status==="dispatched"||sel.status==="awaiting_supervisor") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit Invoice</Btn>}
+                  {role==="tech" && sel.status==="needs_correction" && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit Invoice</Btn>}
                 </div>
               </div>
 
@@ -1760,6 +1787,37 @@ function App() {
                         </div>
                       </div>
                     )}
+                    {/* Needs correction — sent back by supervisor */}
+                    {showTechPanels && sel.status==="needs_correction" && (
+                      <div style={{padding:"20px 24px",background:"#fff1f2",borderBottom:"3px solid #f43f5e"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                          <span style={{fontSize:28}}>↩</span>
+                          <div>
+                            <div style={{fontSize:15,fontWeight:800,color:"#be123c"}}>Sent back for corrections</div>
+                            <div style={{fontSize:12,color:"#be123c",marginTop:2}}>Returned by {sel.correctionBy} · {sel.correctionAt}</div>
+                          </div>
+                        </div>
+                        <div style={{background:"white",border:"1px solid #fda4af",borderRadius:8,padding:"12px 14px",marginBottom:16,fontSize:14,color:"#be123c",fontWeight:600}}>
+                          📋 What needs fixing: {sel.correctionNotes}
+                        </div>
+                        <div style={{fontSize:13,color:"#374151",marginBottom:14}}>
+                          Use the <strong>✎ Edit Invoice</strong> button above to make the corrections, then resubmit below.
+                        </div>
+                        <Txt label="Updated Work Notes" value={act.notes} rows={3}
+                          placeholder="Describe what you corrected…"
+                          onChange={e=>setAct(p=>({...p,notes:e.target.value}))}/>
+                        <Inp label="Your Name" value={act.name} placeholder="Your full name"
+                          onChange={e=>setAct(p=>({...p,name:e.target.value}))}/>
+                        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:16,fontSize:14}}>
+                          <input type="checkbox" checked={act.checked} onChange={e=>setAct(p=>({...p,checked:e.target.checked}))} style={{width:16,height:16}}/>
+                          I have made the requested corrections.
+                        </label>
+                        <Btn disabled={!act.checked||!act.name}
+                          onClick={()=>patch(sel.id,{status:"awaiting_supervisor",workPerformed:act.notes||sel.workPerformed,techSigned:true,techSignedBy:act.name,techSignedAt:nowStamp(),correctionNotes:"",correctionBy:"",correctionAt:""})}>
+                          ✓ Resubmit to Supervisor
+                        </Btn>
+                      </div>
+                    )}
                   </>);
                 })()}
 
@@ -1817,7 +1875,8 @@ function App() {
                 {/* Supervisor actions */}
                 {role==="supervisor" && sel.status==="awaiting_supervisor" && (
                   <SupervisorPanel key={sel.id+"-sup"} sel={sel} supervisors={config.supervisors||[]}
-                    onApprove={(draft, notes, supName)=>patch(sel.id,{...draft,status:"awaiting_accounting",supervisorNotes:notes,supervisorSigned:true,supervisorSignedBy:supName,supervisorSignedAt:nowStamp()})}/>
+                    onApprove={(draft, notes, supName)=>patch(sel.id,{...draft,status:"awaiting_accounting",supervisorNotes:notes,supervisorSigned:true,supervisorSignedBy:supName,supervisorSignedAt:nowStamp()})}
+                    onSendBack={(corrections, supName)=>patch(sel.id,{status:"needs_correction",correctionNotes:corrections,correctionBy:supName,correctionAt:nowStamp(),techSigned:false,techSignedBy:"",techSignedAt:""})}/>
                 )}
                 {role==="supervisor" && sel.status==="awaiting_accounting" && (
                   <div style={{padding:"18px 24px",background:"#f5f3ff",borderTop:"3px solid #8b5cf6",display:"flex",gap:10,alignItems:"center"}}>
