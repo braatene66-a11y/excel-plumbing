@@ -703,6 +703,331 @@ const PriceBookManager = ({ priceBook, onUpdate, onBack }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════
+// ESTIMATE VIEW
+// ═══════════════════════════════════════════════════════
+const genEst = () => "EST-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-5);
+
+const BLANK_EST = () => ({
+  estNumber: genEst(), createdDate: todayISO(), status:"draft",
+  customerName:"", customerPhone:"", customerEmail:"", customerAddress:"",
+  jobName:"", serviceType:"Plumbing Repair",
+  materials:[], applyTax:true,
+  laborLines1:[{id:1,description:"",hours:"",rate:"120"}],
+  laborLines2:[], assignedTech:"", tech2Name:"", notes:"",
+});
+
+const EST_STATUS_COLORS = {
+  draft:    {bg:"#e0e7ff",color:"#3730a3"},
+  sent:     {bg:"#e0f2fe",color:"#0369a1"},
+  approved: {bg:"#d1fae5",color:"#065f46"},
+  declined: {bg:"#fee2e2",color:"#991b1b"},
+};
+
+const printEstimate = (est, t) => {
+  const taxLine = est.applyTax!==false ? `<tr><td>Tax (8% materials)</td><td style="text-align:right">$${t.tax.toFixed(2)}</td></tr>` : `<tr><td>Tax</td><td style="text-align:right">No sales tax</td></tr>`;
+  const matRows = (est.materials||[]).map(m=>`<tr><td>${m.description}</td><td style="text-align:center">${m.qty}</td><td style="text-align:right">$${parseFloat(m.unitPrice||0).toFixed(2)}</td><td style="text-align:right">$${((parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0)).toFixed(2)}</td></tr>`).join("");
+  const lab1Rows = (est.laborLines1||[]).filter(l=>parseFloat(l.hours)>0).map((l,i)=>`<tr><td>${est.assignedTech||"Tech 1"} — ${l.description||"Day "+(i+1)}</td><td style="text-align:center">${l.hours} hrs</td><td style="text-align:right">$${parseFloat(l.rate||0).toFixed(2)}/hr</td><td style="text-align:right">$${((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0)).toFixed(2)}</td></tr>`).join("");
+  const lab2Rows = (est.laborLines2||[]).filter(l=>parseFloat(l.hours)>0).map((l,i)=>`<tr><td>${est.tech2Name||"Tech 2"} — ${l.description||"Day "+(i+1)}</td><td style="text-align:center">${l.hours} hrs</td><td style="text-align:right">$${parseFloat(l.rate||0).toFixed(2)}/hr</td><td style="text-align:right">$${((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0)).toFixed(2)}</td></tr>`).join("");
+  const w = window.open("","_blank");
+  w.document.write(`<!DOCTYPE html><html><head><title>${est.estNumber}</title>
+  <style>
+    body{font-family:-apple-system,sans-serif;max-width:700px;margin:40px auto;padding:0 20px;color:#111}
+    h1{font-size:28px;margin:0}h2{font-size:14px;color:#6b7280;margin:0 0 4px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;background:#0f2640;color:white;padding:24px 28px;border-radius:8px 8px 0 0}
+    .total{font-size:32px;font-weight:700;color:#f47c00}
+    .section{padding:16px 28px;border-bottom:1px solid #e5e7eb}
+    .section-title{font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;padding:6px 8px;background:#f9fafb}
+    td{padding:7px 8px;border-top:1px solid #f3f4f6}
+    .totals-table td{border-top:none;padding:4px 0}
+    .grand-total{font-size:16px;font-weight:700;border-top:2px solid #111!important;padding-top:8px!important}
+    .notes{font-size:14px;line-height:1.7;color:#374151;white-space:pre-wrap}
+    @media print{body{margin:0}.no-print{display:none}}
+  </style></head><body>
+  <div class="header">
+    <div><h2>ESTIMATE</h2><h1>${est.estNumber}</h1>${est.jobName?`<p style="color:#7eb8e0;margin:6px 0 0">${est.jobName}</p>`:""}<p style="color:#7eb8e0;margin:4px 0 0;font-size:13px">${est.serviceType} &nbsp;·&nbsp; ${est.createdDate}</p></div>
+    <div style="text-align:right"><h2>EXCEL PLUMBING & HEATING LLC</h2><div class="total">$${t.total.toFixed(2)}</div><p style="color:#7eb8e0;font-size:12px;margin:2px 0 0">Estimated Total</p></div>
+  </div>
+  <div class="section"><div class="section-title">Customer</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px">${est.customerName||"—"}</div>
+    <div style="font-size:13px;color:#6b7280">${[est.customerPhone,est.customerEmail,est.customerAddress].filter(Boolean).join(" &nbsp;·&nbsp; ")}</div>
+  </div>
+  ${matRows?`<div class="section"><div class="section-title">Materials & Parts</div><table><thead><tr><th>Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${matRows}</tbody></table></div>`:""}
+  ${lab1Rows||lab2Rows?`<div class="section"><div class="section-title">Labor</div><table><thead><tr><th>Description</th><th style="text-align:center">Hours</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody>${lab1Rows}${lab2Rows}</tbody></table></div>`:""}
+  <div class="section"><div class="section-title">Summary</div>
+    <table class="totals-table" style="max-width:280px;margin-left:auto">
+      <tr><td>Materials</td><td style="text-align:right">$${t.mat.toFixed(2)}</td></tr>
+      <tr><td>Labor</td><td style="text-align:right">$${t.lab.toFixed(2)}</td></tr>
+      <tr><td style="border-top:1px solid #e5e7eb;padding-top:6px">Subtotal</td><td style="text-align:right;border-top:1px solid #e5e7eb;padding-top:6px">$${t.sub.toFixed(2)}</td></tr>
+      ${taxLine}
+      <tr class="grand-total"><td>TOTAL</td><td style="text-align:right">$${t.total.toFixed(2)}</td></tr>
+    </table>
+  </div>
+  ${est.notes?`<div class="section"><div class="section-title">Notes / Scope of Work</div><div class="notes">${est.notes}</div></div>`:""}
+  <div class="section no-print" style="display:flex;gap:10px;justify-content:flex-end;border:none">
+    <button onclick="window.print()" style="background:#0f2640;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨 Print / Save as PDF</button>
+  </div>
+  </body></html>`);
+  w.document.close();
+};
+
+const emailEstimate = (est, t) => {
+  const subject = encodeURIComponent(`Estimate ${est.estNumber}${est.jobName?" — "+est.jobName:""} — Excel Plumbing & Heating LLC`);
+  const matLines = (est.materials||[]).map(m=>`  • ${m.description} (x${m.qty}) — $${((parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0)).toFixed(2)}`).join("\n");
+  const lab1Lines = (est.laborLines1||[]).filter(l=>parseFloat(l.hours)>0).map((l,i)=>`  • ${est.assignedTech||"Tech 1"} — ${l.description||"Day "+(i+1)}: ${l.hours} hrs @ $${parseFloat(l.rate||0).toFixed(2)}/hr = $${((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0)).toFixed(2)}`).join("\n");
+  const lab2Lines = (est.laborLines2||[]).filter(l=>parseFloat(l.hours)>0).map((l,i)=>`  • ${est.tech2Name||"Tech 2"} — ${l.description||"Day "+(i+1)}: ${l.hours} hrs @ $${parseFloat(l.rate||0).toFixed(2)}/hr = $${((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0)).toFixed(2)}`).join("\n");
+  const body = encodeURIComponent(
+`Hello ${est.customerName||""},
+
+Thank you for the opportunity to provide this estimate. Please find the details below.
+
+ESTIMATE: ${est.estNumber}
+DATE: ${est.createdDate}
+JOB: ${est.jobName||est.serviceType}
+${est.customerAddress?"ADDRESS: "+est.customerAddress:""}
+
+${matLines?`MATERIALS:\n${matLines}\n`:""}${lab1Lines||lab2Lines?`\nLABOR:\n${lab1Lines}${lab2Lines?"\n"+lab2Lines:""}\n`:""}
+SUBTOTAL: $${t.sub.toFixed(2)}
+${est.applyTax!==false?`TAX (8% materials): $${t.tax.toFixed(2)}\n`:""}TOTAL: $${t.total.toFixed(2)}
+${est.notes?`\nNOTES:\n${est.notes}\n`:""}
+Please don't hesitate to contact us with any questions.
+
+Excel Plumbing & Heating LLC`
+  );
+  window.location.href = `mailto:${est.customerEmail||""}?subject=${subject}&body=${body}`;
+};
+
+const EstimateView = ({ estimates, setEstimates, customers, priceBook, onBack }) => {
+  const [subView, setSubView] = useState("list");
+  const [selId, setSelId]     = useState(null);
+  const [form, setForm]       = useState(BLANK_EST());
+  const [saving, setSaving]   = useState(false);
+  const [search, setSearch]   = useState("");
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+  const sel = estimates.find(e=>e.id===selId);
+
+  const saveEst = async (est) => {
+    setSaving(true);
+    try {
+      if(!est.id) {
+        const saved = await fsAdd("estimates", est);
+        setEstimates(p=>[saved,...p]);
+        setSelId(saved.id); setSubView("detail");
+      } else {
+        await fsSet("estimates", est.id, est);
+        setEstimates(p=>p.map(e=>e.id===est.id?est:e));
+        setSelId(est.id); setSubView("detail");
+      }
+      if(est.customerName?.trim()) {
+        const key = est.customerName.trim().toLowerCase().replace(/\s+/g,"_");
+        fsSet("customers", key, {customerName:est.customerName.trim(),customerPhone:est.customerPhone||"",customerEmail:est.customerEmail||"",customerAddress:est.customerAddress||"",updatedDate:todayISO()}).catch(()=>{});
+      }
+    } finally { setSaving(false); }
+  };
+
+  const deleteEst = async (id) => {
+    if(!window.confirm("Delete this estimate? This cannot be undone.")) return;
+    await fsDel("estimates", id);
+    setEstimates(p=>p.filter(e=>e.id!==id));
+    setSubView("list"); setSelId(null);
+  };
+
+  const visible = estimates.filter(e=>
+    !search||[(e.customerName||""),(e.jobName||""),(e.estNumber||"")].some(v=>v.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  // ── LIST ──
+  if(subView==="list") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Estimates</span>
+        <span style={{fontSize:13,color:"#9ca3af"}}>({estimates.length} total)</span>
+        <Btn style={{marginLeft:"auto"}} onClick={()=>{setForm(BLANK_EST());setSubView("create");}}>+ New Estimate</Btn>
+      </div>
+      <input style={{...iSt,marginBottom:14}} value={search} placeholder="🔍 Search by customer, job name, or estimate #…" onChange={e=>setSearch(e.target.value)}/>
+      {visible.length===0 ? (
+        <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📋</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>{search?"No estimates found":"No estimates yet"}</div>
+          <div style={{fontSize:13,color:"#9ca3af",marginBottom:16}}>Create your first estimate to get started.</div>
+          <Btn onClick={()=>{setForm(BLANK_EST());setSubView("create");}}>+ New Estimate</Btn>
+        </div>
+      ) : visible.map(e=>{
+        const t=calcTotals(e);
+        const sc=EST_STATUS_COLORS[e.status||"draft"]||EST_STATUS_COLORS.draft;
+        return (
+          <div key={e.id} onClick={()=>{setSelId(e.id);setSubView("detail");}}
+            style={{background:"white",borderRadius:10,padding:"14px 18px",marginBottom:10,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",cursor:"pointer",border:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}
+            onMouseEnter={ev=>ev.currentTarget.style.borderColor="#f47c00"}
+            onMouseLeave={ev=>ev.currentTarget.style.borderColor="#f0f0f0"}>
+            <div style={{flex:1,minWidth:180}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#9ca3af"}}>{e.estNumber}</span>
+                <span style={{fontSize:10,background:sc.bg,color:sc.color,borderRadius:20,padding:"1px 8px",fontWeight:700,textTransform:"uppercase"}}>{e.status||"draft"}</span>
+              </div>
+              {e.jobName&&<div style={{fontSize:15,fontWeight:800,color:"#f47c00",marginBottom:2}}>{e.jobName}</div>}
+              <div style={{fontSize:14,fontWeight:700,color:"#0f2640"}}>{e.customerName||"(No customer)"}</div>
+              <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{e.serviceType} · {fmtDate(e.createdDate)}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontSize:20,fontWeight:900,color:"#059669"}}>{fmt$(t.total)}</div>
+              <div style={{fontSize:11,color:"#9ca3af"}}>est. total</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── CREATE / EDIT FORM ──
+  if(subView==="create"||subView==="edit") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={()=>setSubView(sel?"detail":"list")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{subView==="create"?"New Estimate":"Edit Estimate"} · {form.estNumber}</span>
+      </div>
+      <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Estimate Info</SecHead>
+          <Inp label="Job Name / Description" value={form.jobName||""} placeholder="e.g. Smith Kitchen Remodel, Johnson Boiler Install…" onChange={e=>setF("jobName",e.target.value)}/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"0 20px"}}>
+            <Inp label="Estimate #" value={form.estNumber} onChange={e=>setF("estNumber",e.target.value)}/>
+            <Inp label="Date" type="date" value={form.createdDate} onChange={e=>setF("createdDate",e.target.value)}/>
+            <div style={{marginBottom:14}}><Lbl>Service Type</Lbl><select style={iSt} value={form.serviceType} onChange={e=>setF("serviceType",e.target.value)}>{["Plumbing Repair","Plumbing Install","HVAC Repair","HVAC Install","Gas Line","Water Heater","Drain Cleaning","Other"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+            <div style={{marginBottom:14}}><Lbl>Status</Lbl><select style={iSt} value={form.status||"draft"} onChange={e=>setF("status",e.target.value)}>{["draft","sent","approved","declined"].map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}</select></div>
+          </div>
+        </div>
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Customer</SecHead>
+          {customers.length>0&&<div style={{marginBottom:14}}><Lbl>Select Existing Customer</Lbl><select style={{...iSt,border:"2px solid #f47c00"}} value="" onChange={e=>{const c=customers.find(x=>x.id===e.target.value);if(c){setF("customerName",c.customerName);setF("customerPhone",c.customerPhone);setF("customerEmail",c.customerEmail);setF("customerAddress",c.customerAddress);}}}><option value="">— Pick a customer to auto-fill —</option>{customers.map(c=><option key={c.id} value={c.id}>{c.customerName}{c.customerPhone?` · ${c.customerPhone}`:""}</option>)}</select></div>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+            <Inp label="Customer Name" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
+            <Inp label="Phone" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
+          </div>
+          <Inp label="Email Address" value={form.customerEmail||""} placeholder="email@example.com" onChange={e=>setF("customerEmail",e.target.value)}/>
+          <Inp label="Job Site Address" value={form.customerAddress||""} placeholder="123 Main St, City, State, ZIP" onChange={e=>setF("customerAddress",e.target.value)}/>
+        </div>
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Materials & Parts</SecHead>
+          <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)} priceBook={priceBook}/>
+          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginTop:8,padding:"10px 14px",background:form.applyTax!==false?"#f0fdf4":"#fef2f2",border:`1px solid ${form.applyTax!==false?"#86efac":"#fecaca"}`,borderRadius:8,fontSize:14,color:form.applyTax!==false?"#166534":"#dc2626",fontWeight:600}}>
+            <input type="checkbox" checked={form.applyTax!==false} onChange={e=>setF("applyTax",e.target.checked)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
+            {form.applyTax!==false?"✓ Sales Tax (8%) applied to materials":"✗ No sales tax on this job"}
+          </label>
+        </div>
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Labor (Estimated)</SecHead>
+          <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:12}}>
+            <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 1</div>
+            <Inp label="Tech 1 Name" value={form.assignedTech||""} placeholder="Full name" onChange={e=>setF("assignedTech",e.target.value)}/>
+            <LaborLines lines={form.laborLines1||[]} defaultRate="120" onChange={v=>setF("laborLines1",v)}/>
+          </div>
+          <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 2 <span style={{fontWeight:400,color:"#9ca3af",fontSize:11}}>(optional)</span></div>
+            <Inp label="Tech 2 Name" value={form.tech2Name||""} placeholder="Full name" onChange={e=>setF("tech2Name",e.target.value)}/>
+            <LaborLines lines={form.laborLines2||[]} defaultRate="80" onChange={v=>setF("laborLines2",v)}/>
+          </div>
+          <TotalsBox t={calcTotals(form)} applyTax={form.applyTax!==false}/>
+        </div>
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Notes / Scope of Work</SecHead>
+          <Txt label="Notes" value={form.notes||""} rows={4} placeholder="Describe the scope of work, conditions, exclusions, warranty info…" onChange={e=>setF("notes",e.target.value)}/>
+        </div>
+        <div style={{padding:"16px 24px",background:"#f9fafb",display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <Btn variant="outline" onClick={()=>setSubView(sel?"detail":"list")}>Cancel</Btn>
+          <Btn variant="navy" disabled={saving} onClick={()=>saveEst(form)}>💾 {saving?"Saving…":"Save Estimate"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── DETAIL ──
+  if(subView==="detail"&&sel) {
+    const est=estimates.find(e=>e.id===sel.id)||sel;
+    const t=calcTotals(est);
+    const sc=EST_STATUS_COLORS[est.status||"draft"]||EST_STATUS_COLORS.draft;
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+          <button onClick={()=>setSubView("list")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+          <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{est.estNumber}</span>
+          {est.jobName&&<span style={{fontSize:18,fontWeight:800,color:"#f47c00"}}>· {est.jobName}</span>}
+          <span style={{fontSize:11,background:sc.bg,color:sc.color,borderRadius:20,padding:"3px 10px",fontWeight:700,textTransform:"uppercase"}}>{est.status||"draft"}</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:8,flexWrap:"wrap"}}>
+            <Btn variant="outline" small onClick={()=>emailEstimate(est,t)}>📧 Email</Btn>
+            <Btn variant="outline" small onClick={()=>printEstimate(est,t)}>🖨 Print / PDF</Btn>
+            <Btn variant="outline" small onClick={()=>{setForm({...est});setSubView("edit");}}>✎ Edit</Btn>
+            <Btn variant="red" small onClick={()=>deleteEst(est.id)}>🗑 Delete</Btn>
+          </div>
+        </div>
+        <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+          <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",padding:"24px",color:"white",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
+            <div>
+              <div style={{fontSize:11,color:"#7eb8e0",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Estimate</div>
+              <div style={{fontSize:22,fontWeight:900}}>{est.estNumber}</div>
+              <div style={{fontSize:14,color:"#7eb8e0",marginTop:4}}>{est.serviceType} · {fmtDate(est.createdDate)}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,color:"#7eb8e0",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Excel Plumbing & Heating LLC</div>
+              <div style={{fontSize:30,fontWeight:900,color:"#f47c00"}}>{fmt$(t.total)}</div>
+              <div style={{fontSize:12,color:"#7eb8e0"}}>Estimated Total</div>
+            </div>
+          </div>
+          <div style={{padding:"18px 24px",borderBottom:"1px solid #f0f0f0"}}>
+            <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Customer</div>
+            <div style={{fontSize:16,fontWeight:700,color:"#0f2640",marginBottom:4}}>{est.customerName||"—"}</div>
+            <div style={{fontSize:13,color:"#6b7280",display:"flex",gap:16,flexWrap:"wrap"}}>
+              {est.customerPhone&&<span>📞 {est.customerPhone}</span>}
+              {est.customerEmail&&<span>✉️ {est.customerEmail}</span>}
+              {est.customerAddress&&<span>📍 {est.customerAddress}</span>}
+            </div>
+          </div>
+          {(est.materials||[]).length>0&&(
+            <div style={{padding:"18px 24px",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Materials & Parts</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#f9fafb"}}>{["Description","Qty","Unit Price","Total"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                <tbody>{(est.materials||[]).map(m=>{const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0);return <tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px"}}>{m.description}</td><td style={{padding:"8px 10px"}}>{m.qty}</td><td style={{padding:"8px 10px"}}>{fmt$(m.unitPrice)}</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(lt)}</td></tr>;})}</tbody>
+              </table>
+            </div>
+          )}
+          {((est.laborLines1||[]).some(l=>parseFloat(l.hours)>0)||(est.laborLines2||[]).some(l=>parseFloat(l.hours)>0))&&(
+            <div style={{padding:"18px 24px",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Labor</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#f9fafb"}}>{["Tech","Description","Hours","Rate","Total"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(est.laborLines1||[]).filter(l=>parseFloat(l.hours)>0).map((l,i)=><tr key={l.id||i} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px",fontWeight:600}}>{est.assignedTech||"Tech 1"}</td><td style={{padding:"8px 10px"}}>{l.description||`Day ${i+1}`}</td><td style={{padding:"8px 10px"}}>{l.hours} hrs</td><td style={{padding:"8px 10px"}}>{fmt$(l.rate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0))}</td></tr>)}
+                  {(est.laborLines2||[]).filter(l=>parseFloat(l.hours)>0).map((l,i)=><tr key={l.id||i} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px",fontWeight:600}}>{est.tech2Name||"Tech 2"}</td><td style={{padding:"8px 10px"}}>{l.description||`Day ${i+1}`}</td><td style={{padding:"8px 10px"}}>{l.hours} hrs</td><td style={{padding:"8px 10px"}}>{fmt$(l.rate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0))}</td></tr>)}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{padding:"18px 24px",borderBottom:"1px solid #f0f0f0"}}>
+            <TotalsBox t={t} applyTax={est.applyTax!==false}/>
+          </div>
+          {est.notes&&(
+            <div style={{padding:"18px 24px",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Notes / Scope of Work</div>
+              <div style={{fontSize:14,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{est.notes}</div>
+            </div>
+          )}
+          <div style={{padding:"14px 24px",background:"#f9fafb",display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+            <Btn variant="outline" small onClick={()=>emailEstimate(est,t)}>📧 Email Customer</Btn>
+            <Btn variant="outline" small onClick={()=>printEstimate(est,t)}>🖨 Print / Save as PDF</Btn>
+            <Btn variant="outline" small onClick={()=>{setForm({...est});setSubView("edit");}}>✎ Edit</Btn>
+            <Btn variant="red" small onClick={()=>deleteEst(est.id)}>🗑 Delete</Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const WeeklyReport = ({ orders, onBack }) => {
   const [wk, setWk] = useState(getMondayOf(todayISO()));
   const we = addDays(wk,6);
@@ -1320,6 +1645,7 @@ function App() {
   const [user, setUser]         = useState(null); // { uid, name, role, email }
   const [screen, setScreen]     = useState("login");
   const [orders, setOrders]     = useState([]);
+  const [estimates, setEstimates] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [priceBook, setPriceBook] = useState(DEFAULT_PRICEBOOK);
   const [config, setConfig]     = useState(DEFAULT_CONFIG);
@@ -1336,15 +1662,17 @@ function App() {
   const loadData = useCallback(async () => {
     setSyncing(true);
     try {
-      const [ords, cfg, custs, pb] = await Promise.all([
+      const [ords, cfg, custs, pb, ests] = await Promise.all([
         fsList("workOrders"),
         fsGet("config","team").catch(()=>DEFAULT_CONFIG),
         fsList("customers").catch(()=>[]),
         fsList("priceBook").catch(()=>[]),
+        fsList("estimates").catch(()=>[]),
       ]);
       setOrders(ords.sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")));
       setConfig({...DEFAULT_CONFIG,...cfg});
       setCustomers(custs.sort((a,b)=>(a.customerName||"").localeCompare(b.customerName||"")));
+      setEstimates((ests||[]).sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")));
       if(pb.length>0) setPriceBook(pb.sort((a,b)=>a.description.localeCompare(b.description)));
       else {
         // First time — seed Firestore with the built-in price book
@@ -1464,6 +1792,9 @@ function App() {
         {/* ── TIME CARDS ── */}
         {view==="timecards" && <TimeCardReport onBack={goDash} canEdit={role==="supervisor"||role==="accounting"}/>}
 
+        {/* ── ESTIMATES ── */}
+        {view==="estimates" && <EstimateView estimates={estimates} setEstimates={setEstimates} customers={customers} priceBook={priceBook} onBack={goDash}/>}
+
         {/* ── PRICE BOOK ── */}
         {view==="pricebook" && <PriceBookManager priceBook={priceBook} onUpdate={setPriceBook} onBack={goDash}/>}
 
@@ -1546,10 +1877,12 @@ function App() {
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
                   <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>
+                  <button onClick={()=>setView("estimates")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0f766e",color:"white"}}>📋 Estimates ({estimates.length})</button>
                   <button onClick={()=>setView("pricebook")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#7c3aed",color:"white"}}>📦 Price Book ({priceBook.length})</button>
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
                 {role==="accounting" && <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>}
+                {role==="accounting" && <button onClick={()=>setView("estimates")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0f766e",color:"white"}}>📋 Estimates ({estimates.length})</button>}
                 {(role==="supervisor"||role==="accounting") && countOf("closed")>0 && (
                   <button onClick={()=>{ if(window.confirm(`Delete all ${countOf("closed")} closed work orders?`)) deleteAllClosed(); }} style={{padding:"5px 14px",borderRadius:20,border:"1px solid #fca5a5",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"white",color:"#dc2626"}}>🗑 Delete All Closed ({countOf("closed")})</button>
                 )}
