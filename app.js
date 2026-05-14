@@ -912,29 +912,15 @@ const EstimateView = ({ estimates, setEstimates, customers, priceBook, onBack })
         </div>
         <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
           <SecHead>Materials & Parts</SecHead>
-          <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)} priceBook={priceBook}/>
+          <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)} priceBook={[]}/>
           <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginTop:8,padding:"10px 14px",background:form.applyTax!==false?"#f0fdf4":"#fef2f2",border:`1px solid ${form.applyTax!==false?"#86efac":"#fecaca"}`,borderRadius:8,fontSize:14,color:form.applyTax!==false?"#166534":"#dc2626",fontWeight:600}}>
             <input type="checkbox" checked={form.applyTax!==false} onChange={e=>setF("applyTax",e.target.checked)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
             {form.applyTax!==false?"✓ Sales Tax (8%) applied to materials":"✗ No sales tax on this job"}
           </label>
         </div>
         <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
-          <SecHead>Labor (Estimated)</SecHead>
-          <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 1</div>
-            <Inp label="Tech 1 Name" value={form.assignedTech||""} placeholder="Full name" onChange={e=>setF("assignedTech",e.target.value)}/>
-            <LaborLines lines={form.laborLines1||[]} defaultRate="120" onChange={v=>setF("laborLines1",v)}/>
-          </div>
-          <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"14px 16px",marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:800,color:"#0f2640",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.05em"}}>Technician 2 <span style={{fontWeight:400,color:"#9ca3af",fontSize:11}}>(optional)</span></div>
-            <Inp label="Tech 2 Name" value={form.tech2Name||""} placeholder="Full name" onChange={e=>setF("tech2Name",e.target.value)}/>
-            <LaborLines lines={form.laborLines2||[]} defaultRate="80" onChange={v=>setF("laborLines2",v)}/>
-          </div>
-          <TotalsBox t={calcTotals(form)} applyTax={form.applyTax!==false}/>
-        </div>
-        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
           <SecHead>Notes / Scope of Work</SecHead>
-          <Txt label="Notes" value={form.notes||""} rows={4} placeholder="Describe the scope of work, conditions, exclusions, warranty info…" onChange={e=>setF("notes",e.target.value)}/>
+          <Txt label="Notes" value={form.notes||""} rows={8} placeholder="Describe the scope of work, conditions, exclusions, warranty info…" onChange={e=>setF("notes",e.target.value)}/>
         </div>
         <div style={{padding:"16px 24px",background:"#f9fafb",display:"flex",gap:10,justifyContent:"flex-end"}}>
           <Btn variant="outline" onClick={()=>setSubView(sel?"detail":"list")}>Cancel</Btn>
