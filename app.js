@@ -703,6 +703,280 @@ const PriceBookManager = ({ priceBook, onUpdate, onBack }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════
+// ESTIMATES
+// ═══════════════════════════════════════════════════════
+const genEst = () => "EST-"+new Date().getFullYear()+"-"+String(Math.floor(Math.random()*99999)).padStart(5,"0");
+
+const BLANK_ESTIMATE = () => ({
+  estNumber: genEst(),
+  createdDate: todayISO(),
+  status: "draft",
+  customerName:"", customerPhone:"", customerEmail:"", customerAddress:"",
+  jobName:"", description:"", serviceType:"Plumbing Repair",
+  materials:[], applyTax:true,
+  laborLines1:[{id:1,description:"",hours:"",rate:"120"}],
+  laborLines2:[],
+  assignedTech:"", tech2Name:"",
+  notes:"",
+});
+
+const EstimateView = ({ estimates, customers, priceBook, role, onBack, onUpdate }) => {
+  const [subView, setSubView]   = useState("list"); // list | create | detail
+  const [selEst, setSelEst]     = useState(null);
+  const [form, setForm]         = useState(BLANK_ESTIMATE());
+  const [saving, setSaving]     = useState(false);
+  const [search, setSearch]     = useState("");
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const saveEstimate = async (est) => {
+    setSaving(true);
+    try {
+      if(!est.id) {
+        const saved = await fsAdd("estimates", est);
+        onUpdate([saved, ...estimates]);
+        setSelEst(saved); setSubView("detail");
+      } else {
+        await fsSet("estimates", est.id, est);
+        onUpdate(estimates.map(e=>e.id===est.id?est:e));
+        setSelEst(est); setSubView("detail");
+      }
+      // Save customer to directory
+      if(est.customerName?.trim()) {
+        const key = est.customerName.trim().toLowerCase().replace(/\s+/g,"_");
+        await fsSet("customers", key, { customerName:est.customerName.trim(), customerPhone:est.customerPhone||"", customerEmail:est.customerEmail||"", customerAddress:est.customerAddress||"", updatedDate:todayISO() }).catch(()=>{});
+      }
+    } finally { setSaving(false); }
+  };
+
+  const deleteEstimate = async (id) => {
+    if(!window.confirm("Delete this estimate? This cannot be undone.")) return;
+    await fsDel("estimates", id);
+    onUpdate(estimates.filter(e=>e.id!==id));
+    setSubView("list");
+  };
+
+  const visible = estimates.filter(e=>
+    !search || e.customerName?.toLowerCase().includes(search.toLowerCase()) || e.jobName?.toLowerCase().includes(search.toLowerCase()) || e.estNumber?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // ── LIST VIEW ──
+  if(subView==="list") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Estimates</span>
+        <span style={{fontSize:13,color:"#9ca3af"}}>({estimates.length} total)</span>
+        <Btn style={{marginLeft:"auto"}} onClick={()=>{ setForm(BLANK_ESTIMATE()); setSubView("create"); }}>+ New Estimate</Btn>
+      </div>
+      <input style={{...iSt,marginBottom:14}} value={search} placeholder="🔍 Search by customer, job name, or estimate number…" onChange={e=>setSearch(e.target.value)}/>
+      {visible.length===0 ? (
+        <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📋</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>{search?"No estimates found":"No estimates yet"}</div>
+          <div style={{fontSize:13,color:"#9ca3af",marginBottom:16}}>Create your first estimate to get started.</div>
+          <Btn onClick={()=>{ setForm(BLANK_ESTIMATE()); setSubView("create"); }}>+ New Estimate</Btn>
+        </div>
+      ) : visible.map(e=>{
+        const t = calcTotals(e);
+        return (
+          <div key={e.id} onClick={()=>{ setSelEst(e); setSubView("detail"); }}
+            style={{background:"white",borderRadius:10,padding:"14px 18px",marginBottom:10,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",cursor:"pointer",border:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}
+            onMouseEnter={ev=>ev.currentTarget.style.borderColor="#f47c00"}
+            onMouseLeave={ev=>ev.currentTarget.style.borderColor="#f0f0f0"}>
+            <div style={{flex:1,minWidth:180}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:800,color:"#6b7280"}}>{e.estNumber}</span>
+                <span style={{fontSize:11,background:"#e0e7ff",color:"#3730a3",borderRadius:20,padding:"1px 8px",fontWeight:700,textTransform:"uppercase"}}>{e.status||"draft"}</span>
+              </div>
+              {e.jobName && <div style={{fontSize:15,fontWeight:800,color:"#f47c00",marginBottom:2}}>{e.jobName}</div>}
+              <div style={{fontSize:14,fontWeight:700,color:"#0f2640"}}>{e.customerName||"(No customer)"}</div>
+              <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{e.serviceType} · {e.createdDate}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontSize:20,fontWeight:900,color:"#059669"}}>{fmt$(t.total)}</div>
+              <div style={{fontSize:11,color:"#9ca3af"}}>est. total</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── CREATE / EDIT FORM ──
+  if(subView==="create"||subView==="edit") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={()=>setSubView(selEst?"detail":"list")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{subView==="create"?"New Estimate":"Edit Estimate"} · {form.estNumber}</span>
+      </div>
+      <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+
+        {/* Job Info */}
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Estimate Info</SecHead>
+          <Inp label="Job Name / Description" value={form.jobName||""} placeholder="e.g. Smith Kitchen Remodel, Johnson Boiler Install…" onChange={e=>setF("jobName",e.target.value)}/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"0 20px"}}>
+            <Inp label="Estimate Number" value={form.estNumber} onChange={e=>setF("estNumber",e.target.value)}/>
+            <Inp label="Date" type="date" value={form.createdDate} onChange={e=>setF("createdDate",e.target.value)}/>
+            <div style={{marginBottom:14}}>
+              <Lbl>Service Type</Lbl>
+              <select style={iSt} value={form.serviceType} onChange={e=>setF("serviceType",e.target.value)}>
+                {["Plumbing Repair","Plumbing Install","HVAC Repair","HVAC Install","Gas Line","Water Heater","Drain Cleaning","Other"].map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div style={{marginBottom:14}}>
+              <Lbl>Status</Lbl>
+              <select style={iSt} value={form.status||"draft"} onChange={e=>setF("status",e.target.value)}>
+                {["draft","sent","approved","declined"].map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Customer */}
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Customer</SecHead>
+          {customers.length>0 && (
+            <div style={{marginBottom:14}}>
+              <Lbl>Select Existing Customer</Lbl>
+              <select style={{...iSt,border:"2px solid #f47c00"}} value=""
+                onChange={e=>{ const c=customers.find(x=>x.id===e.target.value); if(c){ setF("customerName",c.customerName); setF("customerPhone",c.customerPhone); setF("customerEmail",c.customerEmail); setF("customerAddress",c.customerAddress); } }}>
+                <option value="">— Pick a customer to auto-fill —</option>
+                {customers.map(c=><option key={c.id} value={c.id}>{c.customerName}{c.customerPhone?` · ${c.customerPhone}`:""}</option>)}
+              </select>
+            </div>
+          )}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+            <Inp label="Customer Name / Company" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
+            <Inp label="Phone Number" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
+          </div>
+          <Inp label="Email Address" value={form.customerEmail||""} placeholder="email@example.com" onChange={e=>setF("customerEmail",e.target.value)}/>
+          <Inp label="Job Site Address" value={form.customerAddress||""} placeholder="123 Main St, City, State, ZIP" onChange={e=>setF("customerAddress",e.target.value)}/>
+        </div>
+
+        {/* Materials */}
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Materials & Parts</SecHead>
+          <MatTable materials={form.materials||[]} onUpdate={m=>setF("materials",m)} priceBook={priceBook}/>
+          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginTop:8,padding:"10px 14px",
+            background:form.applyTax!==false?"#f0fdf4":"#fef2f2",
+            border:`1px solid ${form.applyTax!==false?"#86efac":"#fecaca"}`,
+            borderRadius:8,fontSize:14,color:form.applyTax!==false?"#166534":"#dc2626",fontWeight:600}}>
+            <input type="checkbox" checked={form.applyTax!==false} onChange={e=>setF("applyTax",e.target.checked)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
+            {form.applyTax!==false ? "✓ Sales Tax (8%) applied to materials" : "✗ No sales tax"}
+          </label>
+        </div>
+
+        {/* Labor */}
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Labor (Estimated)</SecHead>
+          <LaborPanel data={form} onChange={updated=>setForm(updated)}/>
+        </div>
+
+        {/* Notes */}
+        <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
+          <SecHead>Estimate Notes</SecHead>
+          <Txt label="Notes / Scope of Work" value={form.notes||""} rows={4} placeholder="Describe the scope of work, any conditions, exclusions, or other details for the customer…" onChange={e=>setF("notes",e.target.value)}/>
+        </div>
+
+        <div style={{padding:"16px 24px",background:"#f9fafb",display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <Btn variant="outline" onClick={()=>setSubView(selEst?"detail":"list")}>Cancel</Btn>
+          <Btn variant="navy" disabled={saving} onClick={()=>saveEstimate(form)}>💾 {saving?"Saving…":"Save Estimate"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── DETAIL VIEW ──
+  if(subView==="detail" && selEst) {
+    const est = estimates.find(e=>e.id===selEst.id)||selEst;
+    const t = calcTotals(est);
+    const statusColors = {draft:{bg:"#e0e7ff",color:"#3730a3"},sent:{bg:"#e0f2fe",color:"#0369a1"},approved:{bg:"#d1fae5",color:"#065f46"},declined:{bg:"#fee2e2",color:"#dc2626"}};
+    const sc = statusColors[est.status||"draft"]||statusColors.draft;
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+          <button onClick={()=>setSubView("list")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+          <span style={{fontSize:20,fontWeight:900,color:"#0f2640"}}>{est.estNumber}</span>
+          {est.jobName && <span style={{fontSize:18,fontWeight:800,color:"#f47c00"}}>· {est.jobName}</span>}
+          <span style={{fontSize:11,background:sc.bg,color:sc.color,borderRadius:20,padding:"3px 10px",fontWeight:700,textTransform:"uppercase"}}>{est.status||"draft"}</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            <Btn variant="outline" small onClick={()=>{ setForm({...est}); setSubView("edit"); }}>✎ Edit</Btn>
+            <Btn variant="red" small onClick={()=>deleteEstimate(est.id)}>🗑 Delete</Btn>
+          </div>
+        </div>
+        <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+          {/* Header */}
+          <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",padding:"24px",color:"white"}}>
+            <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
+              <div>
+                <div style={{fontSize:11,color:"#7eb8e0",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Estimate</div>
+                <div style={{fontSize:22,fontWeight:900}}>{est.estNumber}</div>
+                <div style={{fontSize:14,color:"#7eb8e0",marginTop:4}}>Date: {fmtDate(est.createdDate)}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,color:"#7eb8e0",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Excel Plumbing & Heating LLC</div>
+                <div style={{fontSize:28,fontWeight:900,color:"#f47c00"}}>{fmt$(t.total)}</div>
+                <div style={{fontSize:12,color:"#7eb8e0"}}>Estimated Total</div>
+              </div>
+            </div>
+          </div>
+          {/* Customer */}
+          <div style={{padding:"20px 24px",borderBottom:"1px solid #f0f0f0"}}>
+            <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Customer</div>
+            <div style={{fontSize:16,fontWeight:700,color:"#0f2640",marginBottom:4}}>{est.customerName||"—"}</div>
+            <div style={{fontSize:13,color:"#6b7280",display:"flex",gap:16,flexWrap:"wrap"}}>
+              {est.customerPhone && <span>📞 {est.customerPhone}</span>}
+              {est.customerEmail && <span>✉️ {est.customerEmail}</span>}
+              {est.customerAddress && <span>📍 {est.customerAddress}</span>}
+            </div>
+          </div>
+          {/* Materials */}
+          {(est.materials||[]).length>0 && (
+            <div style={{padding:"20px 24px",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Materials</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#f9fafb"}}>{["Description","Qty","Unit Price","Total"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                <tbody>{(est.materials||[]).map(m=>{const lt=(parseFloat(m.qty)||0)*(parseFloat(m.unitPrice)||0); return <tr key={m.id} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px"}}>{m.description}</td><td style={{padding:"8px 10px"}}>{m.qty}</td><td style={{padding:"8px 10px"}}>{fmt$(m.unitPrice)}</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$(lt)}</td></tr>;})}</tbody>
+              </table>
+            </div>
+          )}
+          {/* Labor */}
+          {((est.laborLines1||[]).length>0||(est.laborLines2||[]).length>0) && (
+            <div style={{padding:"20px 24px",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Labor</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#f9fafb"}}>{["Technician","Description","Hours","Rate","Total"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#6b7280",fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(est.laborLines1||[]).filter(l=>(parseFloat(l.hours)||0)>0).map((l,i)=><tr key={l.id||i} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px",fontWeight:600}}>{est.assignedTech||"Tech 1"}</td><td style={{padding:"8px 10px"}}>{l.description||`Day ${i+1}`}</td><td style={{padding:"8px 10px"}}>{l.hours}</td><td style={{padding:"8px 10px"}}>{fmt$(l.rate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0))}</td></tr>)}
+                  {(est.laborLines2||[]).filter(l=>(parseFloat(l.hours)||0)>0).map((l,i)=><tr key={l.id||i} style={{borderTop:"1px solid #f3f4f6"}}><td style={{padding:"8px 10px",fontWeight:600}}>{est.tech2Name||"Tech 2"}</td><td style={{padding:"8px 10px"}}>{l.description||`Day ${i+1}`}</td><td style={{padding:"8px 10px"}}>{l.hours}</td><td style={{padding:"8px 10px"}}>{fmt$(l.rate)}/hr</td><td style={{padding:"8px 10px",fontWeight:700}}>{fmt$((parseFloat(l.hours)||0)*(parseFloat(l.rate)||0))}</td></tr>)}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Totals */}
+          <div style={{padding:"20px 24px",borderBottom:"1px solid #f0f0f0"}}>
+            <TotalsBox t={t} applyTax={est.applyTax!==false}/>
+          </div>
+          {/* Notes */}
+          {est.notes && (
+            <div style={{padding:"20px 24px",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Notes / Scope of Work</div>
+              <div style={{fontSize:14,color:"#374151",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{est.notes}</div>
+            </div>
+          )}
+          <div style={{padding:"16px 24px",background:"#f9fafb",display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <Btn variant="outline" small onClick={()=>{ setForm({...est}); setSubView("edit"); }}>✎ Edit Estimate</Btn>
+            <Btn variant="red" small onClick={()=>deleteEstimate(est.id)}>🗑 Delete</Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const WeeklyReport = ({ orders, onBack }) => {
   const [wk, setWk] = useState(getMondayOf(todayISO()));
   const we = addDays(wk,6);
@@ -1336,15 +1610,17 @@ function App() {
   const loadData = useCallback(async () => {
     setSyncing(true);
     try {
-      const [ords, cfg, custs, pb] = await Promise.all([
+      const [ords, cfg, custs, pb, ests] = await Promise.all([
         fsList("workOrders"),
         fsGet("config","team").catch(()=>DEFAULT_CONFIG),
         fsList("customers").catch(()=>[]),
         fsList("priceBook").catch(()=>[]),
+        fsList("estimates").catch(()=>[]),
       ]);
       setOrders(ords.sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")));
       setConfig({...DEFAULT_CONFIG,...cfg});
       setCustomers(custs.sort((a,b)=>(a.customerName||"").localeCompare(b.customerName||"")));
+      setEstimates(ests.sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||"")))||[];
       if(pb.length>0) setPriceBook(pb.sort((a,b)=>a.description.localeCompare(b.description)));
       else {
         // First time — seed Firestore with the built-in price book
@@ -1458,6 +1734,9 @@ function App() {
       {dispOrder && <DispatchModal order={dispOrder} roster={config.roster} onDispatch={handleDispatch} onClose={()=>setDispOrder(null)}/>}
       <div style={{maxWidth:960,margin:"0 auto",padding:"20px 16px"}}>
 
+        {/* ── ESTIMATES ── */}
+        {view==="estimates" && <EstimateView estimates={estimates} customers={customers} priceBook={priceBook} role={role} onBack={goDash} onUpdate={setEstimates}/>}
+
         {/* ── REPORT ── */}
         {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
 
@@ -1543,12 +1822,14 @@ function App() {
                 {role==="supervisor" && <>
                   <button onClick={()=>setFilter("awaiting_supervisor")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_supervisor"?"#92400e":"#fef3c7",color:filter==="awaiting_supervisor"?"white":"#92400e"}}>Review Queue ({countOf("awaiting_supervisor")})</button>
                   <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
+                  <button onClick={()=>setView("estimates")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0f766e",color:"white"}}>📋 Estimates ({estimates.length})</button>
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
                   <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>
                   <button onClick={()=>setView("pricebook")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#7c3aed",color:"white"}}>📦 Price Book ({priceBook.length})</button>
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
+                {role==="accounting" && <button onClick={()=>setView("estimates")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0f766e",color:"white"}}>📋 Estimates ({estimates.length})</button>}
                 {role==="accounting" && <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>}
                 {(role==="supervisor"||role==="accounting") && countOf("closed")>0 && (
                   <button onClick={()=>{ if(window.confirm(`Delete all ${countOf("closed")} closed work orders?`)) deleteAllClosed(); }} style={{padding:"5px 14px",borderRadius:20,border:"1px solid #fca5a5",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"white",color:"#dc2626"}}>🗑 Delete All Closed ({countOf("closed")})</button>
