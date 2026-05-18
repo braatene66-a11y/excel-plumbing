@@ -1127,8 +1127,14 @@ const TeamView = ({ config, onUpdate, onBack }) => {
   };
 
   const remove = async (field, name) => {
-    if(!window.confirm(`Remove ${name} from the team roster? This does not delete their login.`)) return;
+    if(!window.confirm(`Remove ${name} from the team roster?\n\nThis removes them from the app but does not delete their Firebase login account.`)) return;
     await onUpdate({...config,[field]:config[field].filter(r=>r!==name)});
+    // Also remove from Firestore users collection
+    try {
+      const users = await fsList("users");
+      const match = users.find(u=>u.name===name);
+      if(match) await fsDel("users", match.id);
+    } catch(e){ console.error("User delete error:", e); }
   };
 
   const startEdit = (field, name) => {
@@ -1139,8 +1145,15 @@ const TeamView = ({ config, onUpdate, onBack }) => {
   const saveEdit = async (field, oldName) => {
     const newName = editVal.trim();
     if(!newName || newName===oldName) { setEditName(null); return; }
+    // Update the roster
     const updated = {...config,[field]:config[field].map(n=>n===oldName?newName:n).sort()};
     await onUpdate(updated);
+    // Also update the name in the Firestore users collection
+    try {
+      const users = await fsList("users");
+      const match = users.find(u=>u.name===oldName);
+      if(match) await fsSet("users", match.id, {...match, name:newName});
+    } catch(e){ console.error("User name update error:", e); }
     setEditName(null);
   };
 
