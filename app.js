@@ -1098,8 +1098,10 @@ const WeeklyReport = ({ orders, onBack }) => {
 const TeamView = ({ config, onUpdate, onBack }) => {
   const ROLE_MAP = { roster:"tech", supervisors:"supervisor", accountingStaff:"accounting" };
   const blankNew = { name:"", email:"", pass:"Excel2025!", status:"" };
-  const [adding, setAdding] = useState({ roster:false, supervisors:false, accountingStaff:false });
+  const [adding, setAdding]       = useState({ roster:false, supervisors:false, accountingStaff:false });
   const [newPerson, setNewPerson] = useState({ roster:{...blankNew}, supervisors:{...blankNew}, accountingStaff:{...blankNew} });
+  const [editName, setEditName]   = useState(null);  // "field::oldName"
+  const [editVal, setEditVal]     = useState("");
 
   const toggleAdd = field => setAdding(p=>({...p,[field]:!p[field]}));
 
@@ -1112,12 +1114,8 @@ const TeamView = ({ config, onUpdate, onBack }) => {
         const res = await fbSignUp(p.email.trim(), p.pass);
         await fsSet("users", res.uid, { name:p.name.trim(), email:p.email.trim(), role:ROLE_MAP[field] });
       } catch(signUpErr) {
-        // If email already exists just skip account creation and add to roster anyway
         const msg = signUpErr.message.toUpperCase();
-        if(!msg.includes("EMAIL") && !msg.includes("EXIST") && !msg.includes("USE") && !msg.includes("TAKEN")) {
-          throw signUpErr;
-        }
-        // Email exists — silently continue and just add to roster
+        if(!msg.includes("EMAIL") && !msg.includes("EXIST") && !msg.includes("USE") && !msg.includes("TAKEN")) throw signUpErr;
       }
       const updated = {...config,[field]:[...(config[field]||[]),p.name.trim()].sort()};
       await onUpdate(updated);
@@ -1128,15 +1126,28 @@ const TeamView = ({ config, onUpdate, onBack }) => {
     }
   };
 
-  const remove = async (field,name) => {
+  const remove = async (field, name) => {
     if(!window.confirm(`Remove ${name} from the team roster? This does not delete their login.`)) return;
     await onUpdate({...config,[field]:config[field].filter(r=>r!==name)});
   };
 
+  const startEdit = (field, name) => {
+    setEditName(`${field}::${name}`);
+    setEditVal(name);
+  };
+
+  const saveEdit = async (field, oldName) => {
+    const newName = editVal.trim();
+    if(!newName || newName===oldName) { setEditName(null); return; }
+    const updated = {...config,[field]:config[field].map(n=>n===oldName?newName:n).sort()};
+    await onUpdate(updated);
+    setEditName(null);
+  };
+
   const sections = [
-    { field:"roster",         label:"Technicians",  bg:"#f0f4ff", border:"#c7d2fe", tag:"tech",       tagColor:"#1e40af", tagBg:"#e0e7ff" },
-    { field:"supervisors",    label:"Supervisors",  bg:"#fffbeb", border:"#fde68a", tag:"supervisor", tagColor:"#92400e", tagBg:"#fef3c7" },
-    { field:"accountingStaff",label:"Accounting",   bg:"#f5f3ff", border:"#ddd6fe", tag:"accounting", tagColor:"#5b21b6", tagBg:"#ede9fe" },
+    { field:"roster",          label:"Technicians", bg:"#f0f4ff", border:"#c7d2fe", tag:"tech",       tagColor:"#1e40af", tagBg:"#e0e7ff" },
+    { field:"supervisors",     label:"Supervisors", bg:"#fffbeb", border:"#fde68a", tag:"supervisor", tagColor:"#92400e", tagBg:"#fef3c7" },
+    { field:"accountingStaff", label:"Accounting",  bg:"#f5f3ff", border:"#ddd6fe", tag:"accounting", tagColor:"#5b21b6", tagBg:"#ede9fe" },
   ];
 
   return (
@@ -1169,20 +1180,43 @@ const TeamView = ({ config, onUpdate, onBack }) => {
               </div>
             )}
             {/* Existing members list */}
-            {(config[field]||[]).length===0 ? <div style={{textAlign:"center",padding:"16px 0",color:"#9ca3af",fontSize:13}}>None yet.</div> : (
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {(config[field]||[]).map(name=>(
-                  <div key={name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:bg,border:`1px solid ${border}`,borderRadius:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${tagColor},${tagBg})`,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800}}>{name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}</div>
-                      <span style={{fontSize:14,fontWeight:700}}>{name}</span>
-                      <span style={{fontSize:10,background:tagBg,color:tagColor,borderRadius:20,padding:"2px 8px",fontWeight:700,textTransform:"uppercase"}}>{tag}</span>
-                    </div>
-                    <button onClick={()=>remove(field,name)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"4px 10px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>Remove</button>
-                  </div>
-                ))}
-              </div>
-            )}
+            {(config[field]||[]).length===0
+              ? <div style={{textAlign:"center",padding:"16px 0",color:"#9ca3af",fontSize:13}}>None yet.</div>
+              : (
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {(config[field]||[]).map(name=>{
+                    const isEditing = editName===`${field}::${name}`;
+                    return (
+                      <div key={name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:bg,border:`1px solid ${isEditing?"#f47c00":border}`,borderRadius:8,gap:10}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                          <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${tagColor},${tagBg})`,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0}}>
+                            {(isEditing?editVal:name).split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()||"?"}
+                          </div>
+                          {isEditing
+                            ? <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)}
+                                onKeyDown={e=>{ if(e.key==="Enter") saveEdit(field,name); if(e.key==="Escape") setEditName(null); }}
+                                style={{...iSt,padding:"5px 10px",fontSize:14,fontWeight:700,flex:1}}/>
+                            : <>
+                                <span style={{fontSize:14,fontWeight:700}}>{name}</span>
+                                <span style={{fontSize:10,background:tagBg,color:tagColor,borderRadius:20,padding:"2px 8px",fontWeight:700,textTransform:"uppercase"}}>{tag}</span>
+                              </>
+                          }
+                        </div>
+                        <div style={{display:"flex",gap:6,flexShrink:0}}>
+                          {isEditing ? <>
+                            <button onClick={()=>saveEdit(field,name)} style={{background:"#059669",border:"none",borderRadius:6,color:"white",cursor:"pointer",padding:"4px 10px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>✓ Save</button>
+                            <button onClick={()=>setEditName(null)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:6,color:"#6b7280",cursor:"pointer",padding:"4px 10px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>Cancel</button>
+                          </> : <>
+                            <button onClick={()=>startEdit(field,name)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:6,color:"#1e40af",cursor:"pointer",padding:"4px 10px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>✎ Edit</button>
+                            <button onClick={()=>remove(field,name)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"4px 10px",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>🗑 Delete</button>
+                          </>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            }
           </div>
         </div>
       ))}
