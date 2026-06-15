@@ -74,6 +74,7 @@ const STATUSES = {
   dispatched:          { label:"Dispatched",          color:"#0369a1", bg:"#e0f2fe", border:"#7dd3fc" },
   in_progress:         { label:"In Progress",         color:"#1e40af", bg:"#eff6ff", border:"#93c5fd" },
   needs_correction:    { label:"Needs Correction",    color:"#be123c", bg:"#fff1f2", border:"#fda4af" },
+  on_hold:             { label:"Open Job",            color:"#b45309", bg:"#fef9ec", border:"#fde68a" },
   awaiting_supervisor: { label:"Awaiting Supervisor", color:"#92400e", bg:"#fffbeb", border:"#fbbf24" },
   awaiting_accounting: { label:"Awaiting Accounting", color:"#5b21b6", bg:"#f5f3ff", border:"#c4b5fd" },
   closed:              { label:"Closed",              color:"#065f46", bg:"#ecfdf5", border:"#6ee7b7" },
@@ -1572,7 +1573,7 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
 // SUPERVISOR PANEL (editable invoice)
 // ═══════════════════════════════════════════════════════
 // Each row manages its own local state — no parent re-render while typing
-const SupervisorPanel = ({ sel, onApprove, onSendBack, supervisors=[] }) => {
+const SupervisorPanel = ({ sel, onApprove, onSendBack, onMoveToOpen, supervisors=[] }) => {
   const [notes,        setNotes]        = useState("");
   const [supName,      setSupName]      = useState("");
   const [checked,      setChecked]      = useState(false);
@@ -1594,6 +1595,14 @@ const SupervisorPanel = ({ sel, onApprove, onSendBack, supervisors=[] }) => {
           {applyTax ? "✓ Sales Tax (8%) applied to materials" : "✗ No sales tax on this job"}
         </span>
       </label>
+
+      {/* Move to Open Jobs */}
+      <div style={{marginBottom:16}}>
+        <Btn variant="outline" small onClick={()=>onMoveToOpen()}>
+          📂 Move to Open Jobs
+        </Btn>
+        <div style={{fontSize:12,color:"#9ca3af",marginTop:6}}>Job not finished yet? Move it to Open Jobs and dispatch back to a tech when ready.</div>
+      </div>
 
       {/* Send back section */}
       {!sendingBack ? (
@@ -1906,6 +1915,7 @@ function App() {
                 <button onClick={()=>setFilter("all")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="all"?"#0f2640":"#e5e7eb",color:filter==="all"?"white":"#374151"}}>All ({orders.length})</button>
                 {role==="supervisor" && <>
                   <button onClick={()=>setFilter("awaiting_supervisor")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_supervisor"?"#92400e":"#fef3c7",color:filter==="awaiting_supervisor"?"white":"#92400e"}}>Review Queue ({countOf("awaiting_supervisor")})</button>
+                  <button onClick={()=>setFilter("on_hold")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="on_hold"?"#b45309":"#fef9ec",color:filter==="on_hold"?"white":"#b45309"}}>📂 Open Jobs ({countOf("on_hold")})</button>
                   <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
@@ -2060,9 +2070,9 @@ function App() {
                   <Badge status={sel.status}/><PBadge priority={sel.priority}/>
                 </div>
                 <div style={{display:"flex",gap:8}}>
-                  {role==="supervisor" && (sel.status==="open"||sel.status==="dispatched") && <Btn variant="sky" small onClick={()=>setDispOrder(sel)}>📤 {sel.dispatchedTo?"Reassign":"Dispatch"}</Btn>}
+                  {role==="supervisor" && (sel.status==="open"||sel.status==="dispatched"||sel.status==="on_hold") && <Btn variant="sky" small onClick={()=>setDispOrder(sel)}>📤 {sel.dispatchedTo?"Reassign":"Dispatch"}</Btn>}
                   {/* Only supervisors/accounting can edit — techs use the action panels below */}
-                  {(role==="supervisor"||role==="accounting") && (sel.status==="open"||sel.status==="dispatched"||sel.status==="awaiting_supervisor") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit Invoice</Btn>}
+                  {(role==="supervisor"||role==="accounting") && (sel.status==="open"||sel.status==="dispatched"||sel.status==="awaiting_supervisor"||sel.status==="on_hold") && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit Invoice</Btn>}
                   {role==="tech" && sel.status==="needs_correction" && <Btn variant="outline" small onClick={()=>{setForm({...sel});setSelId(sel.id);setView("edit");}}>✎ Edit Invoice</Btn>}
                 </div>
               </div>
@@ -2084,7 +2094,7 @@ function App() {
                   const showTechPanels = role==="tech" || (role==="supervisor" && isAssignedToMe);
                   const isSupervisorDoingOwnJob = role==="supervisor" && isAssignedToMe;
                   return (<>
-                    {showTechPanels && (sel.status==="open"||sel.status==="dispatched") && (
+                    {showTechPanels && (sel.status==="open"||sel.status==="dispatched"||sel.status==="on_hold") && (
                       <div style={{padding:"20px 24px",background:"linear-gradient(135deg,#fffbeb,#fef9ec)",borderBottom:"3px solid #f59e0b"}}>
                         <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
                           <span style={{fontSize:32}}>🔧</span>
@@ -2240,7 +2250,8 @@ function App() {
                 {role==="supervisor" && sel.status==="awaiting_supervisor" && (
                   <SupervisorPanel key={sel.id+"-sup"} sel={sel} supervisors={config.supervisors||[]}
                     onApprove={(draft, notes, supName)=>patch(sel.id,{...draft,status:"awaiting_accounting",supervisorNotes:notes,supervisorSigned:true,supervisorSignedBy:supName,supervisorSignedAt:nowStamp()})}
-                    onSendBack={(corrections, supName)=>patch(sel.id,{status:"needs_correction",correctionNotes:corrections,correctionBy:supName,correctionAt:nowStamp(),techSigned:false,techSignedBy:"",techSignedAt:""})}/>
+                    onSendBack={(corrections, supName)=>patch(sel.id,{status:"needs_correction",correctionNotes:corrections,correctionBy:supName,correctionAt:nowStamp(),techSigned:false,techSignedBy:"",techSignedAt:""})}
+                    onMoveToOpen={()=>patch(sel.id,{status:"on_hold",techSigned:false,techSignedBy:"",techSignedAt:"",dispatchedTo:"",dispatchedAt:"",dispatchNotes:""})}/>
                 )}
                 {role==="supervisor" && sel.status==="awaiting_accounting" && (
                   <div style={{padding:"18px 24px",background:"#f5f3ff",borderTop:"3px solid #8b5cf6",display:"flex",gap:10,alignItems:"center"}}>
