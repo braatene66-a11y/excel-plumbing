@@ -1015,6 +1015,95 @@ const EstimateView = ({ estimates, setEstimates, customers, priceBook, onBack })
   return null;
 };
 
+// ═══════════════════════════════════════════════════════
+// INVOICE SEARCH
+// ═══════════════════════════════════════════════════════
+const SearchView = ({ orders, onBack, onSelect }) => {
+  const [query, setQuery]   = useState("");
+  const [field, setField]   = useState("all");
+  const closed = orders.filter(o=>o.status==="closed");
+
+  const results = !query.trim() ? closed : closed.filter(o=>{
+    const q = query.toLowerCase();
+    const t = calcTotals(o);
+    if(field==="name"||field==="all")    if((o.customerName||"").toLowerCase().includes(q)) return true;
+    if(field==="address"||field==="all") if((o.customerAddress||"").toLowerCase().includes(q)||(o.jobLocation||"").toLowerCase().includes(q)) return true;
+    if(field==="amount"||field==="all")  if(fmt$(t.total).includes(q)||String(t.total.toFixed(2)).includes(q)) return true;
+    if(field==="job"||field==="all")     if((o.jobName||"").toLowerCase().includes(q)||(o.woNumber||"").toLowerCase().includes(q)) return true;
+    return false;
+  });
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>🔍 Search Closed Invoices</span>
+        <span style={{fontSize:13,color:"#9ca3af"}}>({closed.length} total)</span>
+      </div>
+
+      {/* Search bar */}
+      <div style={{background:"white",borderRadius:12,padding:"18px 20px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          <input
+            autoFocus
+            style={{...iSt,flex:1,minWidth:200,fontSize:15,padding:"10px 14px"}}
+            value={query}
+            placeholder="Type a name, address, amount, or job name…"
+            onChange={e=>setQuery(e.target.value)}/>
+          <select style={{...iSt,width:160}} value={field} onChange={e=>setField(e.target.value)}>
+            <option value="all">Search All Fields</option>
+            <option value="name">Customer Name</option>
+            <option value="address">Address</option>
+            <option value="amount">Amount</option>
+            <option value="job">Job Name / WO#</option>
+          </select>
+        </div>
+        <div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>
+          {query ? `${results.length} result${results.length!==1?"s":""} found` : `Showing all ${closed.length} closed invoices`}
+        </div>
+      </div>
+
+      {/* Results */}
+      {results.length===0 ? (
+        <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+          <div style={{fontSize:36,marginBottom:10}}>🔍</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>No results found</div>
+          <div style={{fontSize:13,color:"#9ca3af"}}>Try a different search term or change the filter</div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {results.map(o=>{
+            const t = calcTotals(o);
+            return (
+              <div key={o.id} onClick={()=>onSelect(o)}
+                style={{background:"white",borderRadius:10,padding:"14px 18px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)",cursor:"pointer",border:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}
+                onMouseEnter={ev=>ev.currentTarget.style.borderColor="#f47c00"}
+                onMouseLeave={ev=>ev.currentTarget.style.borderColor="#f0f0f0"}>
+                <div style={{flex:1,minWidth:180}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                    <span style={{fontSize:12,fontWeight:700,color:"#9ca3af"}}>{o.woNumber}</span>
+                    <span style={{fontSize:10,background:"#ecfdf5",color:"#065f46",borderRadius:20,padding:"1px 8px",fontWeight:700,textTransform:"uppercase"}}>Closed</span>
+                  </div>
+                  {o.jobName && <div style={{fontSize:15,fontWeight:800,color:"#f47c00",marginBottom:2}}>{o.jobName}</div>}
+                  <div style={{fontSize:14,fontWeight:700,color:"#0f2640",marginBottom:2}}>{o.customerName||"(No customer)"}</div>
+                  <div style={{fontSize:12,color:"#9ca3af",display:"flex",gap:12,flexWrap:"wrap"}}>
+                    {o.customerAddress && <span>📍 {o.customerAddress}</span>}
+                    {o.createdDate && <span>📅 {fmtDate(o.createdDate)}</span>}
+                  </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontSize:20,fontWeight:900,color:"#059669"}}>{fmt$(t.total)}</div>
+                  <div style={{fontSize:11,color:"#9ca3af"}}>invoice total</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const WeeklyReport = ({ orders, onBack }) => {
   const [wk, setWk] = useState(getMondayOf(todayISO()));
   const we = addDays(wk,6);
@@ -1828,6 +1917,9 @@ function App() {
       {dispOrder && <DispatchModal order={dispOrder} roster={config.roster} onDispatch={handleDispatch} onClose={()=>setDispOrder(null)}/>}
       <div style={{maxWidth:960,margin:"0 auto",padding:"20px 16px"}}>
 
+        {/* ── SEARCH ── */}
+        {view==="search" && <SearchView orders={orders} onBack={goDash} onSelect={o=>{setSelId(o.id);setView("detail");}}/>}
+
         {/* ── REPORT ── */}
         {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
 
@@ -1916,6 +2008,7 @@ function App() {
                 {role==="supervisor" && <>
                   <button onClick={()=>setFilter("awaiting_supervisor")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_supervisor"?"#92400e":"#fef3c7",color:filter==="awaiting_supervisor"?"white":"#92400e"}}>Review Queue ({countOf("awaiting_supervisor")})</button>
                   <button onClick={()=>setFilter("on_hold")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="on_hold"?"#b45309":"#fef9ec",color:filter==="on_hold"?"white":"#b45309"}}>📂 Open Jobs ({countOf("on_hold")})</button>
+                  <button onClick={()=>setView("search")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#374151",color:"white"}}>🔍 Search Invoices</button>
                   <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
@@ -1925,6 +2018,7 @@ function App() {
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
                 {role==="accounting" && <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>}
+                {role==="accounting" && <button onClick={()=>setView("search")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#374151",color:"white"}}>🔍 Search Invoices</button>}
                 {role==="accounting" && <button onClick={()=>setView("estimates")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0f766e",color:"white"}}>📋 Estimates ({estimates.length})</button>}
                 {(role==="supervisor"||role==="accounting") && countOf("closed")>0 && (
                   <button onClick={()=>{ if(window.confirm(`Delete all ${countOf("closed")} closed work orders?`)) deleteAllClosed(); }} style={{padding:"5px 14px",borderRadius:20,border:"1px solid #fca5a5",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"white",color:"#dc2626"}}>🗑 Delete All Closed ({countOf("closed")})</button>
