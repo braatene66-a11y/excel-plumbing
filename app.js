@@ -63,7 +63,18 @@ const fbSignUp = async (email, pass) => {
 const fsGet  = async (col,id) => { const r=await fetch(`${FS_EP}/${col}/${id}`,{headers:H()}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return fromFS(d); };
 const fsSet  = async (col,id,o) => { const r=await fetch(`${FS_EP}/${col}/${id}`,{method:"PATCH",headers:H(),body:JSON.stringify(toFS(o))}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return fromFS(d); };
 const fsAdd  = async (col,o) => { const r=await fetch(`${FS_EP}/${col}`,{method:"POST",headers:H(),body:JSON.stringify(toFS(o))}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return fromFS(d); };
-const fsList = async col => { const r=await fetch(`${FS_EP}/${col}?pageSize=500`,{headers:H()}); const d=await r.json(); if(d.error) throw new Error(d.error.message); return (d.documents||[]).map(fromFS); };
+const fsList = async col => {
+  let all = [], token = null;
+  do {
+    const url = `${FS_EP}/${col}?pageSize=300${token?`&pageToken=${token}`:""}`;
+    const r = await fetch(url, {headers:H()});
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    all = all.concat((d.documents||[]).map(fromFS));
+    token = d.nextPageToken || null;
+  } while(token);
+  return all;
+};
 const fsDel  = async (col,id) => { await fetch(`${FS_EP}/${col}/${id}`,{method:"DELETE",headers:H()}); };
 
 // ═══════════════════════════════════════════════════════
@@ -1021,7 +1032,7 @@ const EstimateView = ({ estimates, setEstimates, customers, priceBook, onBack })
 const SearchView = ({ orders, onBack, onSelect }) => {
   const [query, setQuery]   = useState("");
   const [field, setField]   = useState("all");
-  const closed = orders.filter(o=>o.status==="closed");
+  const closed = orders.filter(o=>o.status==="closed"&&o.status!=="deleted");
 
   const results = !query.trim() ? closed : closed.filter(o=>{
     const q = query.toLowerCase();
@@ -1829,8 +1840,26 @@ function App() {
     } finally { setSyncing(false); }
   };
 
-  const deleteOrder = async id => { await fsDel("workOrders",id); setOrders(p=>p.filter(o=>o.id!==id)); };
-  const deleteAllClosed = async () => { const closed=orders.filter(o=>o.status==="closed"); await Promise.all(closed.map(o=>fsDel("workOrders",o.id))); setOrders(p=>p.filter(o=>o.status!=="closed")); };
+  const deleteOrder = async id => {
+    const o = orders.find(x=>x.id===id);
+    const confirm1 = window.confirm(`Move "${o?.woNumber} — ${o?.customerName||"this job"}" to the recycle bin?\n\nIt will be permanently removed after 30 days.`);
+    if(!confirm1) return;
+    const typed = window.prompt(`Type DELETE to confirm removing this work order:`);
+    if(typed?.trim()!=="DELETE") { alert("Cancelled — you must type DELETE exactly to confirm."); return; }
+    // Soft delete — move to deleted status, keep in Firestore for 30 days
+    await fsSet("workOrders", id, {...o, status:"deleted", deletedAt:nowStamp(), deletedDate:todayISO()});
+    setOrders(p=>p.filter(x=>x.id!==id));
+  };
+  const deleteAllClosed = async () => {
+    const closed = orders.filter(o=>o.status==="closed");
+    if(closed.length===0) return;
+    const confirm1 = window.confirm(`Move all ${closed.length} closed work orders to the recycle bin?\n\nThey will be permanently removed after 30 days.`);
+    if(!confirm1) return;
+    const typed = window.prompt(`Type DELETE ALL to confirm:`);
+    if(typed?.trim()!=="DELETE ALL") { alert("Cancelled — you must type DELETE ALL exactly to confirm."); return; }
+    await Promise.all(closed.map(o=>fsSet("workOrders",o.id,{...o,status:"deleted",deletedAt:nowStamp(),deletedDate:todayISO()})));
+    setOrders(p=>p.filter(o=>o.status!=="closed"));
+  };
 
   // Auto-save customer to directory when saving a work order
   const saveCustomerFromOrder = async (o) => {
@@ -1878,12 +1907,12 @@ function App() {
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
 
   const visible = (() => {
-    let base = orders;
+    let base = orders.filter(o=>o.status!=="deleted"); // never show deleted jobs
     if(user?.role==="tech") base = base.filter(o=>o.dispatchedTo===user.name||o.assignedTech===user.name);
     if(filter!=="all") base = base.filter(o=>o.status===filter);
     return base;
   })();
-  const countOf = s => orders.filter(o=>o.status===s).length;
+  const countOf = s => orders.filter(o=>o.status===s&&o.status!=="deleted").length;
 
   // ── HEADER ──
   const Header = () => (
