@@ -1356,23 +1356,32 @@ const fmtDurDecimal = ms => {
 
 // Tech clock-in/out panel — shown on tech dashboard
 const ClockPanel = ({ user, onUpdate }) => {
-  const [entry, setEntry]   = useState(null); // current open entry
-  const [loading, setLoading] = useState(true);
-  const [elapsed, setElapsed] = useState(0);
+  const [entry, setEntry]       = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [elapsed, setElapsed]   = useState(0);
+  const [confirm, setConfirm]   = useState(null);  // weekly confirmation record
+  const [comment, setComment]   = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [savingConf, setSavingConf] = useState(false);
 
-  // Load any open clock entry for this user
+  const weekStart = getMondayOf(todayISO());
+  const confKey   = `${user.name.replace(/\s+/g,"_")}_${weekStart}`;
+
   useEffect(()=>{
     (async()=>{
       try {
-        const entries = await fsList("timeEntries");
+        const [entries, confDoc] = await Promise.all([
+          fsList("timeEntries"),
+          fsGet("weekConfirmations", confKey).catch(()=>null),
+        ]);
         const open = entries.find(e=>e.userName===user.name&&!e.clockOut);
         setEntry(open||null);
+        if(confDoc) { setConfirm(confDoc); setConfirmed(confDoc.confirmed||false); setComment(confDoc.comment||""); }
       } catch{}
       setLoading(false);
     })();
-  },[user.name]);
+  },[user.name, weekStart]);
 
-  // Live elapsed timer
   useEffect(()=>{
     if(!entry?.clockIn) return;
     const t = setInterval(()=>setElapsed(Date.now()-entry.clockIn),10000);
@@ -1385,17 +1394,11 @@ const ClockPanel = ({ user, onUpdate }) => {
     try {
       const now = Date.now();
       const saved = await fsAdd("timeEntries",{
-        userName: user.name,
-        uid: user.uid,
-        clockIn: now,
-        clockInStr: new Date(now).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}),
-        clockOut: null,
-        clockOutStr: null,
-        duration: null,
-        date: todayISO(),
+        userName:user.name, uid:user.uid,
+        clockIn:now, clockInStr:new Date(now).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}),
+        clockOut:null, clockOutStr:null, duration:null, date:todayISO(),
       });
-      setEntry(saved);
-      if(onUpdate) onUpdate();
+      setEntry(saved); if(onUpdate) onUpdate();
     } catch(e){ alert("Clock in error: "+e.message); }
     setLoading(false);
   };
@@ -1407,74 +1410,146 @@ const ClockPanel = ({ user, onUpdate }) => {
       const now = Date.now();
       const dur = now - entry.clockIn;
       await fsSet("timeEntries", entry.id, {
-        ...entry,
-        clockOut: now,
-        clockOutStr: new Date(now).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}),
-        duration: dur,
-        durationStr: fmtDur(dur),
-        durationDecimal: fmtDurDecimal(dur),
+        ...entry, clockOut:now,
+        clockOutStr:new Date(now).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}),
+        duration:dur, durationStr:fmtDur(dur), durationDecimal:fmtDurDecimal(dur),
       });
-      setEntry(null);
-      if(onUpdate) onUpdate();
+      setEntry(null); if(onUpdate) onUpdate();
     } catch(e){ alert("Clock out error: "+e.message); }
     setLoading(false);
+  };
+
+  const saveConfirmation = async (newConfirmed) => {
+    setSavingConf(true);
+    try {
+      const doc = {
+        id: confKey,
+        userName: user.name,
+        weekStart,
+        weekLabel: fmtWeek(weekStart),
+        confirmed: newConfirmed,
+        comment,
+        confirmedAt: newConfirmed ? nowStamp() : null,
+        updatedAt: nowStamp(),
+      };
+      await fsSet("weekConfirmations", confKey, doc);
+      setConfirm(doc); setConfirmed(newConfirmed);
+    } catch(e){ alert("Save error: "+e.message); }
+    setSavingConf(false);
+  };
+
+  const saveComment = async () => {
+    setSavingConf(true);
+    try {
+      const doc = {...(confirm||{}), id:confKey, userName:user.name, weekStart, weekLabel:fmtWeek(weekStart), confirmed, comment, updatedAt:nowStamp()};
+      await fsSet("weekConfirmations", confKey, doc);
+      setConfirm(doc);
+    } catch(e){ alert("Save error: "+e.message); }
+    setSavingConf(false);
   };
 
   if(loading) return <div style={{background:"white",borderRadius:12,padding:"16px 20px",marginBottom:16,textAlign:"center",color:"#9ca3af",fontSize:13}}>Loading time card…</div>;
 
   const isClockedIn = !!entry;
   return (
-    <div style={{background:isClockedIn?"linear-gradient(135deg,#ecfdf5,#d1fae5)":"linear-gradient(135deg,#f9fafb,#f3f4f6)",
-      border:`2px solid ${isClockedIn?"#34d399":"#e5e7eb"}`,borderRadius:12,padding:"16px 20px",marginBottom:16,
-      display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
-      <div style={{display:"flex",alignItems:"center",gap:14}}>
-        <div style={{width:48,height:48,borderRadius:"50%",background:isClockedIn?"#059669":"#9ca3af",
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
-          {isClockedIn?"🟢":"⚪"}
-        </div>
-        <div>
-          <div style={{fontSize:15,fontWeight:800,color:isClockedIn?"#065f46":"#374151"}}>
-            {isClockedIn?"Clocked In":"Not Clocked In"}
+    <div style={{marginBottom:16}}>
+      {/* Clock in/out panel */}
+      <div style={{background:isClockedIn?"linear-gradient(135deg,#ecfdf5,#d1fae5)":"linear-gradient(135deg,#f9fafb,#f3f4f6)",
+        border:`2px solid ${isClockedIn?"#34d399":"#e5e7eb"}`,borderRadius:12,padding:"16px 20px",marginBottom:10,
+        display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div style={{width:48,height:48,borderRadius:"50%",background:isClockedIn?"#059669":"#9ca3af",
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+            {isClockedIn?"🟢":"⚪"}
           </div>
-          {isClockedIn && <>
-            <div style={{fontSize:12,color:"#059669",marginTop:2}}>Since {fmtTime(entry.clockIn)}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#065f46",marginTop:2}}>⏱ {fmtDur(elapsed)} elapsed</div>
-          </>}
-          {!isClockedIn && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Tap Clock In to start your shift</div>}
+          <div>
+            <div style={{fontSize:15,fontWeight:800,color:isClockedIn?"#065f46":"#374151"}}>
+              {isClockedIn?"Clocked In":"Not Clocked In"}
+            </div>
+            {isClockedIn && <>
+              <div style={{fontSize:12,color:"#059669",marginTop:2}}>Since {fmtTime(entry.clockIn)}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#065f46",marginTop:2}}>⏱ {fmtDur(elapsed)} elapsed</div>
+            </>}
+            {!isClockedIn && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Tap Clock In to start your shift</div>}
+          </div>
         </div>
+        <Btn variant={isClockedIn?"red":"success"} style={{fontSize:15,padding:"11px 28px"}}
+          onClick={isClockedIn?clockOut:clockIn} disabled={loading}>
+          {isClockedIn?"🔴 Clock Out":"🟢 Clock In"}
+        </Btn>
       </div>
-      <Btn variant={isClockedIn?"red":"success"} style={{fontSize:15,padding:"11px 28px"}}
-        onClick={isClockedIn?clockOut:clockIn} disabled={loading}>
-        {isClockedIn?"🔴 Clock Out":"🟢 Clock In"}
-      </Btn>
+
+      {/* Weekly hour confirmation */}
+      <div style={{background:confirmed?"linear-gradient(135deg,#ecfdf5,#d1fae5)":"white",
+        border:`1px solid ${confirmed?"#6ee7b7":"#e5e7eb"}`,borderRadius:12,padding:"16px 20px"}}>
+        <div style={{fontSize:12,fontWeight:800,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>
+          Weekly Hour Confirmation — {fmtWeek(weekStart)}
+        </div>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:14,
+          padding:"12px 14px",borderRadius:8,
+          background:confirmed?"#d1fae5":"#f9fafb",
+          border:`1px solid ${confirmed?"#34d399":"#d1d5db"}`}}>
+          <input type="checkbox" checked={confirmed}
+            onChange={e=>saveConfirmation(e.target.checked)}
+            disabled={savingConf}
+            style={{width:20,height:20,cursor:"pointer",flexShrink:0,marginTop:1}}/>
+          <div>
+            <div style={{fontSize:14,fontWeight:700,color:confirmed?"#065f46":"#374151"}}>
+              {confirmed?"✓ I have confirmed my hours for this week are correct":"I confirm my hours for this week are correct"}
+            </div>
+            {confirmed && confirm?.confirmedAt && <div style={{fontSize:11,color:"#059669",marginTop:2}}>Confirmed {confirm.confirmedAt}</div>}
+          </div>
+        </label>
+        <div style={{marginBottom:8,fontSize:12,fontWeight:700,color:"#6b7280"}}>
+          Notes / Adjustment Requests (visible to accounting &amp; supervisors):
+        </div>
+        <textarea
+          value={comment}
+          onChange={e=>setComment(e.target.value)}
+          rows={3}
+          placeholder="e.g. I forgot to clock out Thursday — actual hours were 8, not 14. Please adjust."
+          style={{...iSt,resize:"vertical",fontSize:13,marginBottom:8}}/>
+        <Btn small variant="outline" onClick={saveComment} disabled={savingConf}>
+          {savingConf?"Saving…":"💾 Save Notes"}
+        </Btn>
+      </div>
     </div>
   );
 };
 
 // Full time card report for supervisors/accounting
 const TimeCardReport = ({ onBack, canEdit=false }) => {
-  const [entries, setEntries]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [weekStart, setWeekStart] = useState(getMondayOf(todayISO()));
+  const [entries, setEntries]       = useState([]);
+  const [confirmations, setConfs]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [weekStart, setWeekStart]   = useState(getMondayOf(todayISO()));
   const [filterName, setFilterName] = useState("all");
-  const [editId, setEditId]     = useState(null); // id of row being edited
-  const [editVals, setEditVals] = useState({});   // { clockInTime, clockOutTime }
+  const [editId, setEditId]         = useState(null);
+  const [editVals, setEditVals]     = useState({});
 
   useEffect(()=>{ loadEntries(); },[]);
   const loadEntries = async () => {
     setLoading(true);
-    try { setEntries(await fsList("timeEntries")); } catch{}
+    try {
+      const [ents, confs] = await Promise.all([
+        fsList("timeEntries"),
+        fsList("weekConfirmations").catch(()=>[]),
+      ]);
+      setEntries(ents);
+      setConfs(confs);
+    } catch{}
     setLoading(false);
   };
 
-  const weekEnd = addDays(weekStart,6);
-  const inWeek  = entries.filter(e=>e.date>=weekStart&&e.date<=weekEnd);
-  const names   = [...new Set(entries.map(e=>e.userName).filter(Boolean))].sort();
-
+  const weekEnd  = addDays(weekStart,6);
+  const inWeek   = entries.filter(e=>e.date>=weekStart&&e.date<=weekEnd);
+  const names    = [...new Set(entries.map(e=>e.userName).filter(Boolean))].sort();
   const filtered = (filterName==="all"?inWeek:inWeek.filter(e=>e.userName===filterName))
     .sort((a,b)=>(b.clockIn||0)-(a.clockIn||0));
 
-  // Group by employee for summary
+  // Weekly confirmations for this week
+  const weekConfs = confirmations.filter(c=>c.weekStart===weekStart);
+
   const summary = {};
   inWeek.forEach(e=>{
     if(!e.userName) return;
@@ -1489,40 +1564,18 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
   };
 
   const startEdit = (e) => {
-    // Convert timestamps to HH:MM string for time inputs
-    const toTimeStr = ts => {
-      if(!ts) return "";
-      const d = new Date(ts);
-      return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-    };
+    const toTimeStr = ts => { if(!ts) return ""; const d=new Date(ts); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
     setEditId(e.id);
-    setEditVals({ clockInTime: toTimeStr(e.clockIn), clockOutTime: toTimeStr(e.clockOut), date: e.date });
+    setEditVals({ clockInTime:toTimeStr(e.clockIn), clockOutTime:toTimeStr(e.clockOut), date:e.date });
   };
 
   const saveEdit = async (e) => {
-    // Reconstruct timestamps from date + time strings
-    const toTs = (dateStr, timeStr) => {
-      if(!timeStr) return null;
-      const [h,m] = timeStr.split(":").map(Number);
-      const d = new Date(dateStr+"T12:00:00");
-      d.setHours(h,m,0,0);
-      return d.getTime();
-    };
-    const newIn  = toTs(editVals.date, editVals.clockInTime);
-    const newOut = editVals.clockOutTime ? toTs(editVals.date, editVals.clockOutTime) : null;
-    const dur    = newIn && newOut ? newOut - newIn : null;
-    const updated = {
-      ...e,
-      clockIn:  newIn,
-      clockInStr: newIn ? new Date(newIn).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}) : null,
-      clockOut: newOut,
-      clockOutStr: newOut ? new Date(newOut).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}) : null,
-      duration: dur,
-      durationStr: dur ? fmtDur(dur) : null,
-      durationDecimal: dur ? fmtDurDecimal(dur) : null,
-      date: editVals.date,
-    };
-    await fsSet("timeEntries", e.id, updated);
+    const toTs = (dateStr,timeStr) => { if(!timeStr) return null; const [h,m]=timeStr.split(":").map(Number); const d=new Date(dateStr+"T12:00:00"); d.setHours(h,m,0,0); return d.getTime(); };
+    const newIn  = toTs(editVals.date,editVals.clockInTime);
+    const newOut = editVals.clockOutTime?toTs(editVals.date,editVals.clockOutTime):null;
+    const dur    = newIn&&newOut?newOut-newIn:null;
+    const updated = {...e, clockIn:newIn, clockInStr:newIn?new Date(newIn).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}):null, clockOut:newOut, clockOutStr:newOut?new Date(newOut).toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}):null, duration:dur, durationStr:dur?fmtDur(dur):null, durationDecimal:dur?fmtDurDecimal(dur):null, date:editVals.date };
+    await fsSet("timeEntries",e.id,updated);
     setEntries(p=>p.map(x=>x.id===e.id?{...updated,id:e.id}:x));
     setEditId(null);
   };
@@ -1548,6 +1601,46 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
         </div>
       </div>
 
+      {/* Weekly confirmations */}
+      <div style={{background:"white",borderRadius:12,padding:"16px 20px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:12,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>Employee Hour Confirmations</div>
+        {names.length===0
+          ? <div style={{fontSize:13,color:"#9ca3af"}}>No time entries this week</div>
+          : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {names.map(name=>{
+                const conf = weekConfs.find(c=>c.userName===name);
+                return (
+                  <div key={name} style={{background:conf?.confirmed?"#ecfdf5":"#fef9ec",border:`1px solid ${conf?.confirmed?"#6ee7b7":"#fde68a"}`,borderRadius:8,padding:"12px 16px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:conf?.comment?8:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#0f2640,#1a3a5c)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0}}>
+                          {name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,color:"#0f2640"}}>{name}</div>
+                          {conf?.confirmed
+                            ? <div style={{fontSize:11,color:"#059669",fontWeight:600}}>✓ Confirmed hours {conf.confirmedAt||""}</div>
+                            : <div style={{fontSize:11,color:"#b45309",fontWeight:600}}>⏳ Not yet confirmed</div>
+                          }
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,color:"#6b7280"}}>
+                        {summary[name]?`${fmtDurDecimal(summary[name].hours)} hrs · ${summary[name].days} shift${summary[name].days!==1?"s":""}`:""} 
+                      </div>
+                    </div>
+                    {conf?.comment && (
+                      <div style={{background:"white",border:"1px solid #e5e7eb",borderRadius:6,padding:"8px 12px",fontSize:13,color:"#374151",marginTop:8}}>
+                        <span style={{fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>Employee note: </span>
+                        {conf.comment}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+        }
+      </div>
+
       {/* Summary cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}}>
         {Object.entries(summary).map(([name,s])=>(
@@ -1562,27 +1655,23 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
             <div style={{fontSize:11,color:"#9ca3af"}}>{s.days} shift{s.days!==1?"s":""} this week</div>
           </div>
         ))}
-        {Object.keys(summary).length===0 && (
-          <div style={{background:"white",borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)",gridColumn:"1/-1",textAlign:"center",color:"#9ca3af",fontSize:13}}>No time entries this week</div>
-        )}
+        {Object.keys(summary).length===0&&<div style={{background:"white",borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)",gridColumn:"1/-1",textAlign:"center",color:"#9ca3af",fontSize:13}}>No time entries this week</div>}
       </div>
 
-      {/* Filter by employee */}
+      {/* Filter */}
       <div style={{marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{fontSize:12,fontWeight:700,color:"#6b7280"}}>Filter:</span>
         {["all",...names].map(n=>(
-          <button key={n} onClick={()=>setFilterName(n)} style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",
-            fontFamily:"inherit",fontSize:12,fontWeight:700,
-            background:filterName===n?"#0f2640":"#e5e7eb",color:filterName===n?"white":"#374151"}}>
+          <button key={n} onClick={()=>setFilterName(n)} style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filterName===n?"#0f2640":"#e5e7eb",color:filterName===n?"white":"#374151"}}>
             {n==="all"?"All Employees":n}
           </button>
         ))}
       </div>
 
       {/* Entries table */}
-      {loading ? <Spinner/> : (
+      {loading?<div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>Loading…</div>:(
         <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",overflow:"hidden"}}>
-          {filtered.length===0 ? (
+          {filtered.length===0?(
             <div style={{padding:"40px 20px",textAlign:"center",color:"#9ca3af"}}>
               <div style={{fontSize:36,marginBottom:8}}>🕐</div>
               <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:4}}>No entries found</div>
@@ -1600,56 +1689,26 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
                 </thead>
                 <tbody>
                   {filtered.map(e=>{
-                    const isEditing = canEdit && editId===e.id;
+                    const isEditing=canEdit&&editId===e.id;
                     return (
                       <tr key={e.id} style={{borderTop:"1px solid #f3f4f6",background:isEditing?"#fffbeb":"white"}}>
-                        <td style={{padding:"10px 14px"}}>
-                          <div style={{fontWeight:700,color:"#0f2640"}}>{e.userName}</div>
-                        </td>
-                        <td style={{padding:"8px 14px"}}>
-                          {isEditing
-                            ? <input type="date" value={editVals.date} onChange={ev=>setEditVals(p=>({...p,date:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:130}}/>
-                            : <span style={{color:"#374151"}}>{fmtDate(e.date)}</span>
-                          }
-                        </td>
-                        <td style={{padding:"8px 14px"}}>
-                          {isEditing
-                            ? <input type="time" value={editVals.clockInTime} onChange={ev=>setEditVals(p=>({...p,clockInTime:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:110}}/>
-                            : <span style={{color:"#374151"}}>{fmtTime(e.clockIn)}</span>
-                          }
-                        </td>
-                        <td style={{padding:"8px 14px"}}>
-                          {isEditing
-                            ? <input type="time" value={editVals.clockOutTime} onChange={ev=>setEditVals(p=>({...p,clockOutTime:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:110}}/>
-                            : e.clockOut
-                              ? <span style={{color:"#374151"}}>{fmtTime(e.clockOut)}</span>
-                              : <span style={{color:"#059669",fontWeight:700,fontSize:11,background:"#ecfdf5",padding:"2px 8px",borderRadius:20}}>🟢 Clocked in</span>
-                          }
-                        </td>
-                        <td style={{padding:"10px 14px",color:"#374151"}}>
-                          {isEditing
-                            ? <span style={{fontSize:11,color:"#9ca3af"}}>recalculates on save</span>
-                            : e.durationStr||"In progress"
-                          }
-                        </td>
-                        <td style={{padding:"10px 14px",fontWeight:700,color:"#059669"}}>
-                          {isEditing ? "—" : (e.durationDecimal?`${e.durationDecimal} hrs`:"—")}
-                        </td>
-                        {canEdit && (
-                          <td style={{padding:"8px 14px"}}>
-                            {isEditing ? (
-                              <div style={{display:"flex",gap:6}}>
-                                <button onClick={()=>saveEdit(e)} style={{background:"#059669",border:"none",borderRadius:6,color:"white",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✓ Save</button>
-                                <button onClick={()=>setEditId(null)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:6,color:"#6b7280",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Cancel</button>
-                              </div>
-                            ):(
-                              <div style={{display:"flex",gap:6}}>
-                                <button onClick={()=>startEdit(e)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:6,color:"#1e40af",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✎ Edit</button>
-                                <button onClick={()=>deleteEntry(e.id)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
-                              </div>
-                            )}
-                          </td>
-                        )}
+                        <td style={{padding:"10px 14px"}}><div style={{fontWeight:700,color:"#0f2640"}}>{e.userName}</div></td>
+                        <td style={{padding:"8px 14px"}}>{isEditing?<input type="date" value={editVals.date} onChange={ev=>setEditVals(p=>({...p,date:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:130}}/>:<span style={{color:"#374151"}}>{fmtDate(e.date)}</span>}</td>
+                        <td style={{padding:"8px 14px"}}>{isEditing?<input type="time" value={editVals.clockInTime} onChange={ev=>setEditVals(p=>({...p,clockInTime:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:110}}/>:<span style={{color:"#374151"}}>{fmtTime(e.clockIn)}</span>}</td>
+                        <td style={{padding:"8px 14px"}}>{isEditing?<input type="time" value={editVals.clockOutTime} onChange={ev=>setEditVals(p=>({...p,clockOutTime:ev.target.value}))} style={{...iSt,padding:"4px 8px",fontSize:12,width:110}}/>:e.clockOut?<span style={{color:"#374151"}}>{fmtTime(e.clockOut)}</span>:<span style={{color:"#059669",fontWeight:700,fontSize:11,background:"#ecfdf5",padding:"2px 8px",borderRadius:20}}>🟢 Clocked in</span>}</td>
+                        <td style={{padding:"10px 14px",color:"#374151"}}>{isEditing?<span style={{fontSize:11,color:"#9ca3af"}}>recalculates on save</span>:e.durationStr||"In progress"}</td>
+                        <td style={{padding:"10px 14px",fontWeight:700,color:"#059669"}}>{isEditing?"—":(e.durationDecimal?`${e.durationDecimal} hrs`:"—")}</td>
+                        {canEdit&&<td style={{padding:"8px 14px"}}>{isEditing?(
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>saveEdit(e)} style={{background:"#059669",border:"none",borderRadius:6,color:"white",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✓ Save</button>
+                            <button onClick={()=>setEditId(null)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:6,color:"#6b7280",cursor:"pointer",padding:"4px 10px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Cancel</button>
+                          </div>
+                        ):(
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>startEdit(e)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:6,color:"#1e40af",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✎ Edit</button>
+                            <button onClick={()=>deleteEntry(e.id)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
+                          </div>
+                        )}</td>}
                       </tr>
                     );
                   })}
@@ -1660,10 +1719,7 @@ const TimeCardReport = ({ onBack, canEdit=false }) => {
         </div>
       )}
       <div style={{marginTop:12,fontSize:12,color:"#9ca3af"}}>
-        {canEdit
-          ? "💡 Click ✎ Edit on any row to correct clock in/out times or the date. Changes are saved immediately."
-          : "💡 Time entries are created when you clock in. Contact your supervisor to correct any mistakes."
-        }
+        {canEdit?"💡 Click ✎ Edit on any row to correct times. Employee confirmations and notes appear above.":"💡 Clock in and confirm your hours each week using the panel on your dashboard."}
       </div>
     </div>
   );
