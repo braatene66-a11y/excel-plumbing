@@ -2320,10 +2320,11 @@ function App() {
 
                 <div style={{padding:"22px 24px"}}>
                   <SecHead>Customer</SecHead>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 40px"}}>
-                    <div><InfoRow label="Name" value={sel.customerName}/><InfoRow label="Phone" value={sel.customerPhone}/><InfoRow label="Email" value={sel.customerEmail}/></div>
-                    <div><InfoRow label="Billing Address" value={sel.customerAddress}/><InfoRow label="Job Location" value={sel.jobLocation||sel.customerAddress}/></div>
-                  </div>
+                  <InfoRow label="Name" value={sel.customerName}/>
+                  <InfoRow label="Phone" value={sel.customerPhone}/>
+                  <InfoRow label="Email" value={sel.customerEmail}/>
+                  <InfoRow label="Billing Address" value={sel.customerAddress}/>
+                  <InfoRow label="Job Location" value={sel.jobLocation||sel.customerAddress}/>
                 </div>
                 <HR/>
                 <div style={{padding:"22px 24px"}}>
