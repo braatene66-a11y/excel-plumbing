@@ -177,6 +177,75 @@ const TotalsBox = ({ t, applyTax=true }) => (
 );
 
 // Price Book Picker — searchable dropdown for techs to select parts
+// Searchable customer picker — filters by any letters typed
+const CustomerPicker = ({ customers=[], onSelect }) => {
+  const [query, setQuery]   = useState("");
+  const [open, setOpen]     = useState(false);
+  const inputRef            = React.useRef(null);
+
+  const filtered = customers.filter(c=>{
+    if(!query) return true;
+    const q = query.toLowerCase();
+    return (c.customerName||"").toLowerCase().includes(q)
+      || (c.customerPhone||"").toLowerCase().includes(q)
+      || (c.customerAddress||"").toLowerCase().includes(q);
+  }).slice(0,30);
+
+  const pick = c => {
+    onSelect(c);
+    setQuery(c.customerName);
+    setOpen(false);
+  };
+
+  if(customers.length===0) return null;
+  return (
+    <div style={{marginBottom:14,position:"relative"}}>
+      <Lbl>Search Existing Customer (auto-fills fields below)</Lbl>
+      <input
+        ref={inputRef}
+        style={{...iSt,border:"2px solid #f47c00"}}
+        value={query}
+        placeholder="Type any part of name, phone, or address…"
+        onChange={e=>{ setQuery(e.target.value); setOpen(true); }}
+        onFocus={()=>setOpen(true)}
+        onBlur={()=>setTimeout(()=>setOpen(false),150)}
+      />
+      {open && (
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:200,background:"white",
+          border:"1px solid #e5e7eb",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,0.15)",
+          maxHeight:280,overflowY:"auto"}}>
+          {filtered.length===0 ? (
+            <div style={{padding:"14px 16px",fontSize:13,color:"#9ca3af",textAlign:"center"}}>
+              No match — fill in below to add as new customer
+            </div>
+          ) : filtered.map(c=>(
+            <div key={c.id} onMouseDown={()=>pick(c)}
+              style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f3f4f6",
+                display:"flex",alignItems:"center",gap:12,background:c.doNotWork?"#fef2f2":"white"}}
+              onMouseEnter={e=>e.currentTarget.style.background=c.doNotWork?"#fee2e2":"#f9fafb"}
+              onMouseLeave={e=>e.currentTarget.style.background=c.doNotWork?"#fef2f2":"white"}>
+              <div style={{width:32,height:32,borderRadius:"50%",
+                background:c.doNotWork?"linear-gradient(135deg,#dc2626,#ef4444)":"linear-gradient(135deg,#0f2640,#1a3a5c)",
+                color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0}}>
+                {(c.customerName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:700,color:c.doNotWork?"#dc2626":"#0f2640",display:"flex",alignItems:"center",gap:6}}>
+                  {c.customerName}
+                  {c.doNotWork && <span style={{fontSize:10,background:"#fee2e2",color:"#dc2626",borderRadius:20,padding:"1px 7px",fontWeight:700}}>⛔ DO NOT WORK FOR</span>}
+                </div>
+                <div style={{fontSize:12,color:"#9ca3af"}}>
+                  {[c.customerPhone,c.customerAddress].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PriceBookPicker = ({ priceBook=[], onSelect }) => {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
@@ -914,7 +983,14 @@ const EstimateView = ({ estimates, setEstimates, customers, priceBook, onBack })
         </div>
         <div style={{padding:"22px 24px",borderBottom:"1px solid #f0f0f0"}}>
           <SecHead>Customer</SecHead>
-          {customers.length>0&&<div style={{marginBottom:14}}><Lbl>Select Existing Customer</Lbl><select style={{...iSt,border:"2px solid #f47c00"}} value="" onChange={e=>{const c=customers.find(x=>x.id===e.target.value);if(c){setF("customerName",c.customerName);setF("customerPhone",c.customerPhone);setF("customerEmail",c.customerEmail);setF("customerAddress",c.customerAddress);}}}><option value="">— Pick a customer to auto-fill —</option>{customers.map(c=><option key={c.id} value={c.id}>{c.customerName}{c.customerPhone?` · ${c.customerPhone}`:""}</option>)}</select></div>}
+          {customers.length>0&&(
+            <CustomerPicker customers={customers} onSelect={c=>{
+              setF("customerName",c.customerName);
+              setF("customerPhone",c.customerPhone);
+              setF("customerEmail",c.customerEmail);
+              setF("customerAddress",c.customerAddress);
+            }}/>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
             <Inp label="Customer Name" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
             <Inp label="Phone" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
@@ -2030,44 +2106,79 @@ function App() {
         {view==="pricebook" && <PriceBookManager priceBook={priceBook} onUpdate={setPriceBook} onBack={goDash}/>}
 
         {/* ── CUSTOMER DIRECTORY ── */}
-        {view==="customers" && (
-          <div>
-            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
-              <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
-              <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Customer Directory</span>
-              <span style={{fontSize:13,color:"#9ca3af"}}>({customers.length} customers)</span>
-            </div>
-            {customers.length===0 ? (
-              <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
-                <div style={{fontSize:40,marginBottom:10}}>📋</div>
-                <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>No customers yet</div>
-                <div style={{fontSize:13}}>Customers are saved automatically when you create work orders.</div>
+        {view==="customers" && (()=>{
+          const [custSearch, setCustSearch] = React.useState("");
+          const filteredCusts = customers.filter(c=>
+            !custSearch || (c.customerName||"").toLowerCase().includes(custSearch.toLowerCase())
+              || (c.customerPhone||"").toLowerCase().includes(custSearch.toLowerCase())
+              || (c.customerAddress||"").toLowerCase().includes(custSearch.toLowerCase())
+          );
+          const toggleDoNotWork = async (c) => {
+            const updated = {...c, doNotWork: !c.doNotWork};
+            await fsSet("customers", c.id, updated);
+            setCustomers(p=>p.map(x=>x.id===c.id?updated:x));
+          };
+          return (
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+                <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+                <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Customer Directory</span>
+                <span style={{fontSize:13,color:"#9ca3af"}}>({customers.length} customers)</span>
               </div>
-            ):(
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {customers.map(c=>(
-                  <div key={c.id} style={{background:"white",borderRadius:10,padding:"14px 18px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                    <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#0f2640,#1a3a5c)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>
-                      {(c.customerName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
-                    </div>
-                    <div style={{flex:1,minWidth:180}}>
-                      <div style={{fontSize:15,fontWeight:800,color:"#0f2640",marginBottom:3}}>{c.customerName}</div>
-                      <div style={{fontSize:12,color:"#6b7280",display:"flex",gap:12,flexWrap:"wrap"}}>
-                        {c.customerPhone && <span>📞 {c.customerPhone}</span>}
-                        {c.customerEmail && <span>✉️ {c.customerEmail}</span>}
+              <input style={{...iSt,marginBottom:14}} value={custSearch}
+                placeholder="🔍 Search by name, phone, or address…"
+                onChange={e=>setCustSearch(e.target.value)}/>
+              {filteredCusts.length===0 ? (
+                <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+                  <div style={{fontSize:40,marginBottom:10}}>📋</div>
+                  <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>{custSearch?"No matches found":"No customers yet"}</div>
+                  <div style={{fontSize:13}}>Customers are saved automatically when you create work orders.</div>
+                </div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {filteredCusts.map(c=>(
+                    <div key={c.id} style={{background:c.doNotWork?"#fef2f2":"white",borderRadius:10,padding:"14px 18px",
+                      boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",
+                      border:`1px solid ${c.doNotWork?"#fca5a5":"transparent"}`}}>
+                      <div style={{width:40,height:40,borderRadius:"50%",
+                        background:c.doNotWork?"linear-gradient(135deg,#dc2626,#ef4444)":"linear-gradient(135deg,#0f2640,#1a3a5c)",
+                        color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>
+                        {(c.customerName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
                       </div>
-                      {c.customerAddress && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>📍 {c.customerAddress}</div>}
+                      <div style={{flex:1,minWidth:180}}>
+                        <div style={{fontSize:15,fontWeight:800,color:c.doNotWork?"#dc2626":"#0f2640",marginBottom:3,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                          {c.customerName}
+                          {c.doNotWork && <span style={{fontSize:11,background:"#fee2e2",color:"#dc2626",borderRadius:20,padding:"2px 8px",fontWeight:700}}>⛔ DO NOT WORK FOR</span>}
+                        </div>
+                        <div style={{fontSize:12,color:"#6b7280",display:"flex",gap:12,flexWrap:"wrap"}}>
+                          {c.customerPhone && <span>📞 {c.customerPhone}</span>}
+                          {c.customerEmail && <span>✉️ {c.customerEmail}</span>}
+                        </div>
+                        {c.customerAddress && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>📍 {c.customerAddress}</div>}
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+                        <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",
+                          padding:"6px 10px",borderRadius:8,
+                          background:c.doNotWork?"#fee2e2":"#f9fafb",
+                          border:`1px solid ${c.doNotWork?"#fca5a5":"#e5e7eb"}`}}>
+                          <input type="checkbox" checked={!!c.doNotWork} onChange={()=>toggleDoNotWork(c)}
+                            style={{width:16,height:16,cursor:"pointer",accentColor:"#dc2626"}}/>
+                          <span style={{fontSize:12,fontWeight:700,color:c.doNotWork?"#dc2626":"#6b7280",whiteSpace:"nowrap"}}>
+                            Do Not Work For
+                          </span>
+                        </label>
+                        <button onClick={()=>{ if(window.confirm(`Delete ${c.customerName} from the customer directory?`)) deleteCustomer(c.id); }}
+                          style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"5px 12px",fontSize:12,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>
+                          🗑 Delete
+                        </button>
+                      </div>
                     </div>
-                    <button onClick={()=>{ if(window.confirm(`Delete ${c.customerName} from the customer directory?`)) deleteCustomer(c.id); }}
-                      style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"5px 12px",fontSize:12,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>
-                      🗑 Delete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {view==="team" && <TeamView config={config} onUpdate={updateConfig} onBack={goDash}/>}
 
@@ -2196,18 +2307,12 @@ function App() {
                 <SecHead>Customer Information</SecHead>
                 {/* Customer picker */}
                 {customers.length>0 && (
-                  <div style={{marginBottom:16}}>
-                    <Lbl>Select Existing Customer (auto-fills fields below)</Lbl>
-                    <select style={{...iSt,border:"2px solid #f47c00"}} value=""
-                      onChange={e=>{
-                        const c=customers.find(x=>x.id===e.target.value);
-                        if(c){ setF("customerName",c.customerName); setF("customerPhone",c.customerPhone); setF("customerEmail",c.customerEmail); setF("customerAddress",c.customerAddress); }
-                      }}>
-                      <option value="">— Pick a customer to auto-fill —</option>
-                      {customers.map(c=><option key={c.id} value={c.id}>{c.customerName}{c.customerPhone?` · ${c.customerPhone}`:""}</option>)}
-                    </select>
-                    <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Or fill in manually below to add a new customer.</div>
-                  </div>
+                  <CustomerPicker customers={customers} onSelect={c=>{
+                    setF("customerName",c.customerName);
+                    setF("customerPhone",c.customerPhone);
+                    setF("customerEmail",c.customerEmail);
+                    setF("customerAddress",c.customerAddress);
+                  }}/>
                 )}
                 <Inp label="Customer Name / Company" value={form.customerName||""} placeholder="John Smith" onChange={e=>setF("customerName",e.target.value)}/>
                 <Inp label="Phone Number" value={form.customerPhone||""} placeholder="(555) 000-0000" onChange={e=>setF("customerPhone",e.target.value)}/>
