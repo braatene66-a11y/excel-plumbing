@@ -246,6 +246,81 @@ const CustomerPicker = ({ customers=[], onSelect }) => {
   );
 };
 
+// Customer Directory Component
+const CustomerDirectory = ({ customers, setCustomers, deleteCustomer, onBack }) => {
+  const [custSearch, setCustSearch] = useState("");
+  const filteredCusts = customers.filter(c=>
+    !custSearch || (c.customerName||"").toLowerCase().includes(custSearch.toLowerCase())
+      || (c.customerPhone||"").toLowerCase().includes(custSearch.toLowerCase())
+      || (c.customerAddress||"").toLowerCase().includes(custSearch.toLowerCase())
+  );
+  const toggleDoNotWork = async (c) => {
+    const updated = {...c, doNotWork: !c.doNotWork};
+    await fsSet("customers", c.id, updated);
+    setCustomers(p=>p.map(x=>x.id===c.id?updated:x));
+  };
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Customer Directory</span>
+        <span style={{fontSize:13,color:"#9ca3af"}}>({customers.length} customers)</span>
+      </div>
+      <input style={{...iSt,marginBottom:14}} value={custSearch}
+        placeholder="🔍 Search by name, phone, or address…"
+        onChange={e=>setCustSearch(e.target.value)}/>
+      {filteredCusts.length===0 ? (
+        <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📋</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>{custSearch?"No matches found":"No customers yet"}</div>
+          <div style={{fontSize:13}}>Customers are saved automatically when you create work orders.</div>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {filteredCusts.map(c=>(
+            <div key={c.id} style={{background:c.doNotWork?"#fef2f2":"white",borderRadius:10,padding:"14px 18px",
+              boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",
+              border:`1px solid ${c.doNotWork?"#fca5a5":"transparent"}`}}>
+              <div style={{width:40,height:40,borderRadius:"50%",
+                background:c.doNotWork?"linear-gradient(135deg,#dc2626,#ef4444)":"linear-gradient(135deg,#0f2640,#1a3a5c)",
+                color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>
+                {(c.customerName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+              </div>
+              <div style={{flex:1,minWidth:180}}>
+                <div style={{fontSize:15,fontWeight:800,color:c.doNotWork?"#dc2626":"#0f2640",marginBottom:3,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  {c.customerName}
+                  {c.doNotWork && <span style={{fontSize:11,background:"#fee2e2",color:"#dc2626",borderRadius:20,padding:"2px 8px",fontWeight:700}}>⛔ DO NOT WORK FOR</span>}
+                </div>
+                <div style={{fontSize:12,color:"#6b7280",display:"flex",gap:12,flexWrap:"wrap"}}>
+                  {c.customerPhone && <span>📞 {c.customerPhone}</span>}
+                  {c.customerEmail && <span>✉️ {c.customerEmail}</span>}
+                </div>
+                {c.customerAddress && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>📍 {c.customerAddress}</div>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",
+                  padding:"6px 10px",borderRadius:8,
+                  background:c.doNotWork?"#fee2e2":"#f9fafb",
+                  border:`1px solid ${c.doNotWork?"#fca5a5":"#e5e7eb"}`}}>
+                  <input type="checkbox" checked={!!c.doNotWork} onChange={()=>toggleDoNotWork(c)}
+                    style={{width:16,height:16,cursor:"pointer",accentColor:"#dc2626"}}/>
+                  <span style={{fontSize:12,fontWeight:700,color:c.doNotWork?"#dc2626":"#6b7280",whiteSpace:"nowrap"}}>
+                    Do Not Work For
+                  </span>
+                </label>
+                <button onClick={()=>{ if(window.confirm(`Delete ${c.customerName} from the customer directory?`)) deleteCustomer(c.id); }}
+                  style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"5px 12px",fontSize:12,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>
+                  🗑 Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PriceBookPicker = ({ priceBook=[], onSelect }) => {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
@@ -2106,79 +2181,7 @@ function App() {
         {view==="pricebook" && <PriceBookManager priceBook={priceBook} onUpdate={setPriceBook} onBack={goDash}/>}
 
         {/* ── CUSTOMER DIRECTORY ── */}
-        {view==="customers" && (()=>{
-          const [custSearch, setCustSearch] = React.useState("");
-          const filteredCusts = customers.filter(c=>
-            !custSearch || (c.customerName||"").toLowerCase().includes(custSearch.toLowerCase())
-              || (c.customerPhone||"").toLowerCase().includes(custSearch.toLowerCase())
-              || (c.customerAddress||"").toLowerCase().includes(custSearch.toLowerCase())
-          );
-          const toggleDoNotWork = async (c) => {
-            const updated = {...c, doNotWork: !c.doNotWork};
-            await fsSet("customers", c.id, updated);
-            setCustomers(p=>p.map(x=>x.id===c.id?updated:x));
-          };
-          return (
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
-                <button onClick={goDash} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
-                <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📋 Customer Directory</span>
-                <span style={{fontSize:13,color:"#9ca3af"}}>({customers.length} customers)</span>
-              </div>
-              <input style={{...iSt,marginBottom:14}} value={custSearch}
-                placeholder="🔍 Search by name, phone, or address…"
-                onChange={e=>setCustSearch(e.target.value)}/>
-              {filteredCusts.length===0 ? (
-                <div style={{background:"white",borderRadius:12,padding:"48px 20px",textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
-                  <div style={{fontSize:40,marginBottom:10}}>📋</div>
-                  <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:4}}>{custSearch?"No matches found":"No customers yet"}</div>
-                  <div style={{fontSize:13}}>Customers are saved automatically when you create work orders.</div>
-                </div>
-              ):(
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {filteredCusts.map(c=>(
-                    <div key={c.id} style={{background:c.doNotWork?"#fef2f2":"white",borderRadius:10,padding:"14px 18px",
-                      boxShadow:"0 1px 4px rgba(0,0,0,0.07)",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",
-                      border:`1px solid ${c.doNotWork?"#fca5a5":"transparent"}`}}>
-                      <div style={{width:40,height:40,borderRadius:"50%",
-                        background:c.doNotWork?"linear-gradient(135deg,#dc2626,#ef4444)":"linear-gradient(135deg,#0f2640,#1a3a5c)",
-                        color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>
-                        {(c.customerName||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
-                      </div>
-                      <div style={{flex:1,minWidth:180}}>
-                        <div style={{fontSize:15,fontWeight:800,color:c.doNotWork?"#dc2626":"#0f2640",marginBottom:3,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                          {c.customerName}
-                          {c.doNotWork && <span style={{fontSize:11,background:"#fee2e2",color:"#dc2626",borderRadius:20,padding:"2px 8px",fontWeight:700}}>⛔ DO NOT WORK FOR</span>}
-                        </div>
-                        <div style={{fontSize:12,color:"#6b7280",display:"flex",gap:12,flexWrap:"wrap"}}>
-                          {c.customerPhone && <span>📞 {c.customerPhone}</span>}
-                          {c.customerEmail && <span>✉️ {c.customerEmail}</span>}
-                        </div>
-                        {c.customerAddress && <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>📍 {c.customerAddress}</div>}
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-                        <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",
-                          padding:"6px 10px",borderRadius:8,
-                          background:c.doNotWork?"#fee2e2":"#f9fafb",
-                          border:`1px solid ${c.doNotWork?"#fca5a5":"#e5e7eb"}`}}>
-                          <input type="checkbox" checked={!!c.doNotWork} onChange={()=>toggleDoNotWork(c)}
-                            style={{width:16,height:16,cursor:"pointer",accentColor:"#dc2626"}}/>
-                          <span style={{fontSize:12,fontWeight:700,color:c.doNotWork?"#dc2626":"#6b7280",whiteSpace:"nowrap"}}>
-                            Do Not Work For
-                          </span>
-                        </label>
-                        <button onClick={()=>{ if(window.confirm(`Delete ${c.customerName} from the customer directory?`)) deleteCustomer(c.id); }}
-                          style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"5px 12px",fontSize:12,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>
-                          🗑 Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {view==="customers" && <CustomerDirectory customers={customers} setCustomers={setCustomers} deleteCustomer={deleteCustomer} onBack={goDash}/>}
 
         {view==="team" && <TeamView config={config} onUpdate={updateConfig} onBack={goDash}/>}
 
