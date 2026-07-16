@@ -1966,6 +1966,18 @@ function App() {
     let base = orders.filter(o=>o.status!=="deleted"); // never show deleted jobs
     if(user?.role==="tech") base = base.filter(o=>o.dispatchedTo===user.name||o.assignedTech===user.name);
     if(filter!=="all") base = base.filter(o=>o.status===filter);
+    // Open, dispatched, in_progress: oldest first so priority is clear
+    const oldestFirst = ["open","dispatched","in_progress","on_hold","needs_correction"];
+    if(filter!=="all" && oldestFirst.includes(filter)) {
+      base = [...base].sort((a,b)=>(a.createdDate||"").localeCompare(b.createdDate||""));
+    } else if(filter==="all") {
+      // For "all" view: active jobs oldest first on top, then closed/accounting newest first
+      const active = base.filter(o=>oldestFirst.includes(o.status)).sort((a,b)=>(a.createdDate||"").localeCompare(b.createdDate||""));
+      const other  = base.filter(o=>!oldestFirst.includes(o.status)).sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||""));
+      base = [...active, ...other];
+    } else {
+      base = [...base].sort((a,b)=>(b.createdDate||"").localeCompare(a.createdDate||""));
+    }
     return base;
   })();
   const countOf = s => orders.filter(o=>o.status===s&&o.status!=="deleted").length;
