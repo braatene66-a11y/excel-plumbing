@@ -2448,7 +2448,7 @@ function App() {
         {/* ── DASHBOARD ── */}
         {view==="dashboard" && (
           <div>
-            {/* Tech welcome banner */}
+            {/* Tech welcome banner + clock */}
             {role==="tech" && (
               <div>
                 <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",borderRadius:12,padding:"14px 20px",marginBottom:12,display:"flex",alignItems:"center",gap:12,color:"white"}}>
@@ -2459,6 +2459,9 @@ function App() {
                 <ClockPanel user={user}/>
               </div>
             )}
+
+            {/* Supervisor clock panel */}
+            {role==="supervisor" && <ClockPanel user={user}/>}
 
             {/* Status counts */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:18}}>
