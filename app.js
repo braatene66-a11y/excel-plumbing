@@ -1266,6 +1266,263 @@ const SearchView = ({ orders, onBack, onSelect }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════
+// SCHEDULING CALENDAR
+// ═══════════════════════════════════════════════════════
+const DAYS_OF_WEEK = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const TIME_OFF_TYPES = ["Vacation","Sick Day","Personal Day","Holiday","Other"];
+const TYPE_COLORS = {
+  "Vacation":    {bg:"#dbeafe",color:"#1e40af",dot:"#3b82f6"},
+  "Sick Day":    {bg:"#fee2e2",color:"#dc2626",dot:"#ef4444"},
+  "Personal Day":{bg:"#fef9c3",color:"#854d0e",dot:"#eab308"},
+  "Holiday":     {bg:"#d1fae5",color:"#065f46",dot:"#10b981"},
+  "Other":       {bg:"#f3f4f6",color:"#374151",dot:"#9ca3af"},
+};
+
+const SchedulingCalendar = ({ config, onBack, canEdit=false }) => {
+  const today = new Date();
+  const [year,  setYear]  = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [selDate,  setSelDate]  = useState(null);
+  const [selEntry, setSelEntry] = useState(null);
+  const [form, setForm] = useState({employeeName:"",type:"Vacation",startDate:"",endDate:"",note:""});
+  const [saving, setSaving] = useState(false);
+
+  const allStaff = [...(config.roster||[]),...(config.supervisors||[]),...(config.accountingStaff||[])].filter((v,i,a)=>a.indexOf(v)===i).sort();
+
+  useEffect(()=>{
+    (async()=>{
+      setLoading(true);
+      try { setEntries(await fsList("timeOff").catch(()=>[])); } catch{}
+      setLoading(false);
+    })();
+  },[]);
+
+  const prevMonth = () => { if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); };
+  const nextMonth = () => { if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); };
+
+  // Build calendar grid
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const cells = [];
+  for(let i=0;i<firstDay;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(d);
+  while(cells.length%7!==0) cells.push(null);
+
+  const dateStr = d => `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
+  const getEntriesForDate = d => {
+    if(!d) return [];
+    const ds = dateStr(d);
+    return entries.filter(e=>e.startDate<=ds&&e.endDate>=ds);
+  };
+
+  const isToday = d => {
+    if(!d) return false;
+    return d===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+  };
+
+  const openAdd = (d) => {
+    if(!canEdit) return;
+    const ds = dateStr(d);
+    setForm({employeeName:allStaff[0]||"",type:"Vacation",startDate:ds,endDate:ds,note:""});
+    setSelEntry(null);
+    setSelDate(d);
+    setShowModal(true);
+  };
+
+  const openEdit = (e, ev) => {
+    ev.stopPropagation();
+    if(!canEdit) return;
+    setForm({...e});
+    setSelEntry(e);
+    setShowModal(true);
+  };
+
+  const saveEntry = async () => {
+    if(!form.employeeName||!form.startDate||!form.endDate) return;
+    setSaving(true);
+    try {
+      if(selEntry?.id) {
+        await fsSet("timeOff", selEntry.id, form);
+        setEntries(p=>p.map(e=>e.id===selEntry.id?{...form,id:selEntry.id}:e));
+      } else {
+        const saved = await fsAdd("timeOff", form);
+        setEntries(p=>[...p,saved]);
+      }
+      setShowModal(false);
+    } catch(e){ alert("Save error: "+e.message); }
+    setSaving(false);
+  };
+
+  const deleteEntry = async (id, ev) => {
+    ev.stopPropagation();
+    if(!window.confirm("Remove this time off entry?")) return;
+    await fsDel("timeOff", id);
+    setEntries(p=>p.filter(e=>e.id!==id));
+  };
+
+  // Month list view - all entries this month
+  const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
+  const monthEntries = entries.filter(e=>e.startDate?.startsWith(monthStr)||e.endDate?.startsWith(monthStr)||
+    (e.startDate<=monthStr+"-31"&&e.endDate>=monthStr+"-01"))
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate));
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:700,color:"#6b7280",fontFamily:"inherit",padding:0}}>← Back</button>
+        <span style={{fontSize:22,fontWeight:900,color:"#0f2640"}}>📅 Scheduling Calendar</span>
+        {canEdit && <Btn small onClick={()=>{ const ds=todayISO(); setForm({employeeName:allStaff[0]||"",type:"Vacation",startDate:ds,endDate:ds,note:""}); setSelEntry(null); setShowModal(true); }}>+ Add Time Off</Btn>}
+      </div>
+
+      {/* Month navigation */}
+      <div style={{background:"white",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",marginBottom:14}}>
+        <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={prevMonth} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:16,fontWeight:700}}>‹</button>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:900,color:"white"}}>{MONTHS[month]} {year}</div>
+            <div style={{fontSize:12,color:"#7eb8e0",marginTop:2}}>{monthEntries.length} time-off {monthEntries.length===1?"entry":"entries"} this month</div>
+          </div>
+          <button onClick={nextMonth} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:16,fontWeight:700}}>›</button>
+        </div>
+
+        {/* Day headers */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:"1px solid #f0f0f0"}}>
+          {DAYS_OF_WEEK.map(d=>(
+            <div key={d} style={{padding:"8px 4px",textAlign:"center",fontSize:11,fontWeight:800,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em",background:"#f9fafb"}}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        {loading ? (
+          <div style={{padding:"40px",textAlign:"center",color:"#9ca3af"}}>Loading calendar…</div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+            {cells.map((d,i)=>{
+              const dayEntries = getEntriesForDate(d);
+              const todayCell = isToday(d);
+              return (
+                <div key={i} onClick={()=>d&&canEdit&&openAdd(d)}
+                  style={{minHeight:80,padding:"6px 4px",borderRight:"1px solid #f3f4f6",borderBottom:"1px solid #f3f4f6",
+                    background:d?todayCell?"#eff6ff":"white":"#fafafa",
+                    cursor:d&&canEdit?"pointer":"default",
+                    position:"relative"}}
+                  onMouseEnter={e=>{ if(d&&canEdit) e.currentTarget.style.background=todayCell?"#dbeafe":"#f9fafb"; }}
+                  onMouseLeave={e=>{ if(d) e.currentTarget.style.background=todayCell?"#eff6ff":"white"; }}>
+                  {d && (
+                    <>
+                      <div style={{fontSize:13,fontWeight:todayCell?900:600,
+                        color:todayCell?"#1e40af":"#374151",
+                        width:24,height:24,borderRadius:"50%",
+                        background:todayCell?"#1e40af":"transparent",
+                        color:todayCell?"white":"#374151",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        marginBottom:4}}>
+                        {d}
+                      </div>
+                      {dayEntries.slice(0,3).map(e=>{
+                        const tc = TYPE_COLORS[e.type]||TYPE_COLORS.Other;
+                        return (
+                          <div key={e.id} onClick={ev=>openEdit(e,ev)}
+                            style={{fontSize:10,fontWeight:700,background:tc.bg,color:tc.color,
+                              borderRadius:4,padding:"1px 4px",marginBottom:2,
+                              overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                              cursor:canEdit?"pointer":"default",lineHeight:1.4}}>
+                            {e.employeeName?.split(" ")[0]} — {e.type}
+                          </div>
+                        );
+                      })}
+                      {dayEntries.length>3 && <div style={{fontSize:10,color:"#9ca3af",fontWeight:700}}>+{dayEntries.length-3} more</div>}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* This month's entries list */}
+      {monthEntries.length>0 && (
+        <div style={{background:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",overflow:"hidden"}}>
+          <div style={{padding:"14px 20px",background:"#f9fafb",borderBottom:"1px solid #f0f0f0",fontSize:13,fontWeight:800,color:"#0f2640",textTransform:"uppercase",letterSpacing:"0.06em"}}>
+            Time Off This Month
+          </div>
+          {monthEntries.map(e=>{
+            const tc = TYPE_COLORS[e.type]||TYPE_COLORS.Other;
+            const sameDay = e.startDate===e.endDate;
+            return (
+              <div key={e.id} style={{display:"flex",alignItems:"center",gap:14,padding:"12px 20px",borderBottom:"1px solid #f3f4f6",flexWrap:"wrap"}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:tc.dot,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:150}}>
+                  <div style={{fontSize:14,fontWeight:700,color:"#0f2640"}}>{e.employeeName}</div>
+                  <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>
+                    <span style={{background:tc.bg,color:tc.color,borderRadius:20,padding:"1px 8px",fontWeight:700,fontSize:11}}>{e.type}</span>
+                    <span style={{marginLeft:8}}>{sameDay?fmtDate(e.startDate):`${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`}</span>
+                  </div>
+                  {e.note && <div style={{fontSize:12,color:"#9ca3af",marginTop:2,fontStyle:"italic"}}>"{e.note}"</div>}
+                </div>
+                {canEdit && (
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>
+                    <button onClick={ev=>openEdit(e,ev)} style={{background:"none",border:"1px solid #93c5fd",borderRadius:6,color:"#1e40af",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✎ Edit</button>
+                    <button onClick={ev=>deleteEntry(e.id,ev)} style={{background:"none",border:"1px solid #fecaca",borderRadius:6,color:"#dc2626",cursor:"pointer",padding:"3px 8px",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✕</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:"white",borderRadius:16,width:"100%",maxWidth:440,boxShadow:"0 25px 60px rgba(0,0,0,0.3)",overflow:"hidden"}}>
+            <div style={{background:"linear-gradient(135deg,#0f2640,#1a3a5c)",padding:"20px 24px"}}>
+              <div style={{fontSize:16,fontWeight:900,color:"white"}}>{selEntry?"Edit Time Off":"Add Time Off"}</div>
+            </div>
+            <div style={{padding:"20px 24px"}}>
+              <div style={{marginBottom:14}}>
+                <Lbl>Employee</Lbl>
+                <select style={iSt} value={form.employeeName} onChange={e=>setForm(p=>({...p,employeeName:e.target.value}))}>
+                  <option value="">— Select employee —</option>
+                  {allStaff.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div style={{marginBottom:14}}>
+                <Lbl>Type</Lbl>
+                <select style={iSt} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>
+                  {TIME_OFF_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+                <Inp label="Start Date" type="date" value={form.startDate} onChange={e=>setForm(p=>({...p,startDate:e.target.value,endDate:p.endDate<e.target.value?e.target.value:p.endDate}))}/>
+                <Inp label="End Date" type="date" value={form.endDate} onChange={e=>setForm(p=>({...p,endDate:e.target.value}))}/>
+              </div>
+              <Inp label="Note (optional)" value={form.note||""} placeholder="e.g. Doctor appointment, family vacation…" onChange={e=>setForm(p=>({...p,note:e.target.value}))}/>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+                {selEntry && <Btn variant="red" small onClick={async ev=>{ await deleteEntry(selEntry.id,{stopPropagation:()=>{}}); setShowModal(false); }}>🗑 Delete</Btn>}
+                <Btn variant="outline" onClick={()=>setShowModal(false)}>Cancel</Btn>
+                <Btn variant="success" disabled={saving||!form.employeeName||!form.startDate||!form.endDate} onClick={saveEntry}>
+                  {saving?"Saving…":"✓ Save"}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const WeeklyReport = ({ orders, onBack }) => {
   const [wk, setWk] = useState(getMondayOf(todayISO()));
   const we = addDays(wk,6);
@@ -2168,6 +2425,9 @@ function App() {
         {/* ── SEARCH ── */}
         {view==="search" && <SearchView orders={orders} onBack={goDash} onSelect={o=>{setSelId(o.id);setView("detail");}}/>}
 
+        {/* ── CALENDAR ── */}
+        {view==="calendar" && <SchedulingCalendar config={config} onBack={goDash} canEdit={role==="supervisor"||role==="accounting"}/>}
+
         {/* ── REPORT ── */}
         {view==="report" && <WeeklyReport orders={orders} onBack={goDash}/>}
 
@@ -2220,6 +2480,7 @@ function App() {
                   <button onClick={()=>setFilter("awaiting_supervisor")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_supervisor"?"#92400e":"#fef3c7",color:filter==="awaiting_supervisor"?"white":"#92400e"}}>Review Queue ({countOf("awaiting_supervisor")})</button>
                   <button onClick={()=>setFilter("on_hold")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="on_hold"?"#b45309":"#fef9ec",color:filter==="on_hold"?"white":"#b45309"}}>📂 Open Jobs ({countOf("on_hold")})</button>
                   <button onClick={()=>setView("search")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#374151",color:"white"}}>🔍 Search Invoices</button>
+                  <button onClick={()=>setView("calendar")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0891b2",color:"white"}}>📅 Calendar</button>
                   <button onClick={()=>setView("report")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#1e40af",color:"white"}}>📊 Hours</button>
                   <button onClick={()=>setView("team")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#065f46",color:"white"}}>👷 Team</button>
                   <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>
@@ -2229,6 +2490,7 @@ function App() {
                 </>}
                 {role==="accounting" && <button onClick={()=>setFilter("awaiting_accounting")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:filter==="awaiting_accounting"?"#5b21b6":"#ede9fe",color:filter==="awaiting_accounting"?"white":"#5b21b6"}}>My Queue ({countOf("awaiting_accounting")})</button>}
                 {role==="accounting" && <button onClick={()=>setView("customers")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#92400e",color:"white"}}>📋 Customers ({customers.length})</button>}
+                {role==="accounting" && <button onClick={()=>setView("calendar")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0891b2",color:"white"}}>📅 Calendar</button>}
                 {role==="accounting" && <button onClick={()=>setView("timecards")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0369a1",color:"white"}}>🕐 Time Cards</button>}
                 {role==="accounting" && <button onClick={()=>setView("search")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#374151",color:"white"}}>🔍 Search Invoices</button>}
                 {role==="accounting" && <button onClick={()=>setView("estimates")} style={{padding:"5px 14px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"#0f766e",color:"white"}}>📋 Estimates ({estimates.length})</button>}
